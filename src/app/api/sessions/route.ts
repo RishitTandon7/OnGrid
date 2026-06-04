@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { startSessionSchema } from '@/lib/validators';
+import { extractIpv4 } from '@/lib/network';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,11 +61,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Capture teacher's IP at session creation — this becomes the reference
+    // subnet for validating students are on the same building network.
+    const rawIp =
+      request.headers.get('x-forwarded-for')?.split(',')[0] ||
+      request.headers.get('x-real-ip') ||
+      null;
+    const teacherIp = extractIpv4(rawIp);
+
     const attendanceSession = await prisma.attendanceSession.create({
       data: {
         classroomId: validation.data.classroomId,
         teacherId: session.user.id,
         windowMinutes: validation.data.windowMinutes,
+        teacherIp: teacherIp ?? undefined,
       },
       include: { classroom: true },
     });

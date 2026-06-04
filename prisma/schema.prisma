@@ -7,7 +7,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -59,6 +58,8 @@ model AttendanceSession {
   endedAt       DateTime?
   windowMinutes Int
   isActive      Boolean   @default(true)
+  // Teacher's IP captured at session start — used for per-building subnet validation
+  teacherIp     String?
 
   // Relations
   classroom Classroom        @relation(fields: [classroomId], references: [id])

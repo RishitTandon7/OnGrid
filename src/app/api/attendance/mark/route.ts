@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { markAttendanceSchema } from '@/lib/validators';
 import { isPointInPolygon, isAltitudeValid } from '@/lib/geofence';
+import { extractIpv4, isSameSubnet } from '@/lib/network';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,7 +91,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── 3. Duplicate check ───────────────────────────────────────────────────
+    // ── 3. WiFi subnet check — must be on the same building network as teacher ─
+    const rawStudentIp =
+      request.headers.get('x-forwarded-for')?.split(',')[0] ||
+      request.headers.get('x-real-ip') ||
+      null;
+    const ip = extractIpv4(rawStudentIp) ?? rawStudentIp ?? 'unknown';
+
+    const subnetCheck = isSameSubnet(attendanceSession.teacherIp, rawStudentIp);
+    if (!subnetCheck.allowed) {
+      return NextResponse.json(
+        {
+          message: `Network mismatch — you must be connected to the campus WiFi in this building to mark attendance. (${subnetCheck.reason})`,
+        },
+        { status: 403 }
+      );
+    }
+
+    // ── 4. Duplicate check ───────────────────────────────────────────────────
     const existing = await prisma.attendanceRecord.findUnique({
       where: {
         sessionId_studentId: {
@@ -107,13 +125,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get client IP
-    const ip =
-      request.headers.get('x-forwarded-for')?.split(',')[0] ||
-      request.headers.get('x-real-ip') ||
-      'unknown';
-
-    // ── 4. Create attendance record with sensor telemetry ────────────────────
+    // ── 5. Create attendance record with sensor telemetry ────────────────────
     const record = await prisma.attendanceRecord.create({
       data: {
         sessionId,
