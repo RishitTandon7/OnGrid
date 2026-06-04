@@ -64,7 +64,7 @@ src/
 
 ### Test Data
 - ✅ Seed script with realistic test data
-- ✅ Test teacher account: `teacher@college.edu` / `Teacher@123`
+- ✅ Test teacher account: `teacher@college.edu` / `OnGridTeacherSecure2026!`
 - ✅ Test student accounts with different names
 - ✅ Sample classroom with GPS geofence
 - ✅ Example attendance session and records
@@ -135,12 +135,12 @@ Open http://localhost:3000
 
 **Login as Teacher**:
 - Email: `teacher@college.edu`
-- Password: `Teacher@123`
+- Password: `OnGridTeacherSecure2026!`
 - Then: Create classrooms, start attendance sessions
 
 **Login as Student**:
 - Email: `alice@college.edu`
-- Password: `Student@123`
+- Password: `OnGridStudentSecure2026!`
 - Then: Mark attendance in active sessions, view records
 
 ## 📝 Key Files to Understand

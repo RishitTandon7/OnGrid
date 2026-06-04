@@ -132,7 +132,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => {
                     setEmail('teacher@college.edu');
-                    setPassword('Teacher@123');
+                    setPassword('OnGridTeacherSecure2026!');
                   }}
                   className="px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950/50 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-zinc-700 dark:text-zinc-300 border border-zinc-200/50 dark:border-zinc-800 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 hover:border-indigo-500/30"
                 >
@@ -143,7 +143,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => {
                     setEmail('alice@college.edu');
-                    setPassword('Student@123');
+                    setPassword('OnGridStudentSecure2026!');
                   }}
                   className="px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950/50 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-zinc-700 dark:text-zinc-300 border border-zinc-200/50 dark:border-zinc-800 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 hover:border-emerald-500/30"
                 >
@@ -185,8 +185,8 @@ export default function LoginPage() {
 
         {/* Footer info box */}
         <div className="mt-6 text-center text-[10px] text-zinc-400 dark:text-zinc-600 leading-normal">
-          <p>📧 Teacher: teacher@college.edu / Teacher@123</p>
-          <p>📧 Students: alice@college.edu, bob@college.edu / Student@123</p>
+          <p>📧 Teacher: teacher@college.edu / OnGridTeacherSecure2026!</p>
+          <p>📧 Students: alice@college.edu, bob@college.edu / OnGridStudentSecure2026!</p>
         </div>
       </div>
     </div>

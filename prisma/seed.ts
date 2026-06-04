@@ -33,7 +33,7 @@ async function main() {
     update: {},
     create: {
       email: 'teacher@college.edu',
-      passwordHash: await hash('Teacher@123'),
+      passwordHash: await hash('OnGridTeacherSecure2026!'),
       name: 'Dr. Ananya Sharma',
       role: Role.TEACHER,
     },
@@ -42,11 +42,11 @@ async function main() {
 
   // ─── Students ─────────────────────────────────────────────────────────────
   const studentsData = [
-    { email: 'alice@college.edu',   name: 'Alice Mehta',       password: 'Student@123' },
-    { email: 'bob@college.edu',     name: 'Bob Krishnamurthy', password: 'Student@123' },
-    { email: 'charlie@college.edu', name: 'Charlie Verma',     password: 'Student@123' },
-    { email: 'diana@college.edu',   name: 'Diana Rao',         password: 'Student@123' },
-    { email: 'ethan@college.edu',   name: "Ethan D'Souza",     password: 'Student@123' },
+    { email: 'alice@college.edu',   name: 'Alice Mehta',       password: 'OnGridStudentSecure2026!' },
+    { email: 'bob@college.edu',     name: 'Bob Krishnamurthy', password: 'OnGridStudentSecure2026!' },
+    { email: 'charlie@college.edu', name: 'Charlie Verma',     password: 'OnGridStudentSecure2026!' },
+    { email: 'diana@college.edu',   name: 'Diana Rao',         password: 'OnGridStudentSecure2026!' },
+    { email: 'ethan@college.edu',   name: "Ethan D'Souza",     password: 'OnGridStudentSecure2026!' },
   ];
 
   for (const s of studentsData) {
@@ -87,12 +87,12 @@ async function main() {
 
   console.log('\n🎉 Seed completed successfully!');
   console.log('\n📋 Credentials Summary:');
-  console.log('   Teacher  → teacher@college.edu   / Teacher@123');
-  console.log('   Students → alice@college.edu     / Student@123');
-  console.log('             → bob@college.edu       / Student@123');
-  console.log('             → charlie@college.edu   / Student@123');
-  console.log('             → diana@college.edu     / Student@123');
-  console.log('             → ethan@college.edu     / Student@123');
+  console.log('   Teacher  → teacher@college.edu   / OnGridTeacherSecure2026!');
+  console.log('   Students → alice@college.edu     / OnGridStudentSecure2026!');
+  console.log('             → bob@college.edu       / OnGridStudentSecure2026!');
+  console.log('             → charlie@college.edu   / OnGridStudentSecure2026!');
+  console.log('             → diana@college.edu     / OnGridStudentSecure2026!');
+  console.log('             → ethan@college.edu     / OnGridStudentSecure2026!');
 }
 
 main()

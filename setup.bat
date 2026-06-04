@@ -93,7 +93,7 @@ echo.
 echo Then visit: http://localhost:3000
 echo.
 echo Test credentials:
-echo   Teacher:  teacher@college.edu / Teacher@123
-echo   Student:  alice@college.edu / Student@123
+echo   Teacher:  teacher@college.edu / OnGridTeacherSecure2026!
+echo   Student:  alice@college.edu / OnGridStudentSecure2026!
 echo.
 pause

@@ -92,13 +92,13 @@ Visit http://localhost:3000
 ### 3. Test the Flow
 
 **Teacher**:
-1. Login as `teacher@college.edu` / `Teacher@123`
+1. Login as `teacher@college.edu` / `OnGridTeacherSecure2026!`
 2. Create a classroom with geofence coordinates
 3. Start an attendance session
 4. View student attendance records
 
 **Student**:
-1. Login as `alice@college.edu` / `Student@123`
+1. Login as `alice@college.edu` / `OnGridStudentSecure2026!`
 2. Go to "Mark Attendance"
 3. Allow location access when prompted
 4. Click "Mark Attendance" if within geofence

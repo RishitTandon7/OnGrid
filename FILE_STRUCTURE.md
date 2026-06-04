@@ -216,18 +216,18 @@ prisma/
 
 ### Teacher Account
 - **Email**: `teacher@college.edu`
-- **Password**: `Teacher@123`
+- **Password**: `OnGridTeacherSecure2026!`
 - **Name**: Dr. Ananya Sharma
 - **Classroom**: Lecture Hall A-101 (IIT Bombay coordinates)
 
 ### Student Accounts
 | Email | Password | Name |
 |-------|----------|------|
-| alice@college.edu | Student@123 | Alice Mehta |
-| bob@college.edu | Student@123 | Bob Krishnamurthy |
-| charlie@college.edu | Student@123 | Charlie Verma |
-| diana@college.edu | Student@123 | Diana Rao |
-| ethan@college.edu | Student@123 | Ethan D'Souza |
+| alice@college.edu | OnGridStudentSecure2026! | Alice Mehta |
+| bob@college.edu | OnGridStudentSecure2026! | Bob Krishnamurthy |
+| charlie@college.edu | OnGridStudentSecure2026! | Charlie Verma |
+| diana@college.edu | OnGridStudentSecure2026! | Diana Rao |
+| ethan@college.edu | OnGridStudentSecure2026! | Ethan D'Souza |
 
 ---
 
