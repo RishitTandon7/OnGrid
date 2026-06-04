@@ -1,4 +1,4 @@
 {
-  "buildCommand": "npx prisma generate && npx prisma migrate deploy && next build",
+  "buildCommand": "npx prisma generate && (if [ -n \"$DATABASE_URL\" ]; then npx prisma migrate deploy; else echo 'DATABASE_URL is not set, skipping migration'; fi) && next build",
   "framework": "nextjs"
 }
