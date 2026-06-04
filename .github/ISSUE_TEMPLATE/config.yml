@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "💬 Discussions"
+    url: "https://github.com/rishittandon7/ongrid/discussions"
+    about: "Ask questions, share ideas, and showcase what you are building with OnGrid."
+  - name: "👾 Discord Server"
+    url: "https://discord.gg/your-invite"
+    about: "Join our community Discord server to chat with other developers and maintainers in real-time."
