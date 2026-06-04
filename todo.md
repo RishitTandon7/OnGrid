@@ -7,7 +7,4 @@
 - Code builds successfully
 
 ## Remaining ⏳
-- Resume Supabase DB at https://supabase.com/dashboard/project/irojprdocecmyuvsyoyv
-- Then run: `npx prisma migrate deploy`
-- Then run: `npm run seed`
-- Then run: `npm run dev` and test
+- Trigger Vercel rebuild to apply environment variables ✅
