@@ -1,0 +1,99 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  TEACHER
+  STUDENT
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id               String   @id @default(cuid())
+  email            String   @unique
+  passwordHash     String
+  name             String
+  role             Role
+  deviceFingerprint String? // nullable — populated on first login
+  createdAt        DateTime @default(now())
+
+  // Relations
+  taughtSessions   AttendanceSession[]  @relation("TeacherSessions")
+  attendanceRecords AttendanceRecord[]  @relation("StudentRecords")
+  webAuthnCredentials WebAuthnCredential[]
+}
+
+model Classroom {
+  id               String   @id @default(cuid())
+  name             String
+  label            String
+  polygon          Json     // Array of {lat, lng} corner points
+  floor            Int
+  building         String
+  // Altitude calibration — set by teacher while physically in the room
+  altitudeMeters   Float?   // GPS altitude in metres at classroom level
+  pressureHpa      Float?   // Barometric pressure in hPa at classroom level
+  altitudeTolerance Float   @default(4.0) // Allowed vertical deviation in metres
+  createdAt        DateTime @default(now())
+
+  // Relations
+  sessions  AttendanceSession[]
+}
+
+model AttendanceSession {
+  id            String    @id @default(cuid())
+  classroomId   String
+  teacherId     String
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
+  windowMinutes Int
+  isActive      Boolean   @default(true)
+
+  // Relations
+  classroom Classroom        @relation(fields: [classroomId], references: [id])
+  teacher   User             @relation("TeacherSessions", fields: [teacherId], references: [id])
+  records   AttendanceRecord[]
+}
+
+model AttendanceRecord {
+  id                String   @id @default(cuid())
+  sessionId         String
+  studentId         String
+  markedAt          DateTime @default(now())
+  ipAddress         String
+  deviceFingerprint String
+  lat               Float
+  lng               Float
+  // Sensor telemetry captured from student's device at mark time
+  altitude          Float?   // GPS altitude in metres (null if unavailable)
+  pressure          Float?   // Barometric pressure in hPa (null if unavailable)
+  sensorConfidence  Float?   // 0–1 confidence score from sensor fusion
+
+  // Relations
+  session AttendanceSession @relation(fields: [sessionId], references: [id])
+  student User              @relation("StudentRecords", fields: [studentId], references: [id])
+
+  // Prevent duplicate entries per session per student
+  @@unique([sessionId, studentId])
+}
+
+model WebAuthnCredential {
+  id           String @id @default(cuid())
+  userId       String
+  credentialId String @unique
+  publicKey    String
+  counter      Int    @default(0)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+}
