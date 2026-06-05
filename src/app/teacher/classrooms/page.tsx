@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   RotateCcw,
   MoveVertical,
+  MapPin,
 } from 'lucide-react';
 import GeofencePreview from '@/components/GeofencePreview';
 
@@ -83,6 +84,7 @@ export default function ClassroomsPage() {
   const [polygonText, setPolygonText] = useState('');
   const [formData, setFormData] = useState(emptyForm);
   const [altitudeTolerance, setAltitudeTolerance] = useState(4.0);
+  const [isCapturingGps, setIsCapturingGps] = useState(false);
 
   // Altitude calibration state
   const [altCapture, setAltCapture] = useState<AltitudeCapture>(emptyAltitude);
@@ -119,6 +121,28 @@ export default function ClassroomsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  /**
+   * Capture a single GPS point and append it to the polygon text
+   */
+  const captureGpsPoint = () => {
+    setIsCapturingGps(true);
+    setError('');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const newPoint = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+        setPolygonText((prev) => (prev.trim() ? `${prev}\n${newPoint}` : newPoint));
+        setIsCapturingGps(false);
+      },
+      (err) => {
+        console.error('Error capturing GPS:', err);
+        setError('Failed to get location. Please allow location permissions.');
+        setIsCapturingGps(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
   /**
@@ -442,6 +466,17 @@ export default function ClassroomsPage() {
                 <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium leading-normal mt-1.5">
                   Enter at least 3 points forming a boundary polygon. Separate latitude and longitude with a comma.
                 </p>
+                <div className="mt-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={captureGpsPoint}
+                    disabled={isCapturingGps}
+                    className="btn btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    {isCapturingGps ? 'Locking GPS...' : 'Capture Current Location as Corner'}
+                  </button>
+                </div>
               </div>
 
               {/* ─── Altitude Calibration Panel ─────────────────────────────── */}
