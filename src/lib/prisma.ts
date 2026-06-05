@@ -12,7 +12,7 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://mock:mock@localhost:5432/mock';
+const connectionString = process.env.DATABASE_URL!;
 
 const pool = new Pool({
   connectionString,
