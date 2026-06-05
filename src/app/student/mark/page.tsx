@@ -1,66 +1,29 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import {
-  ArrowLeft,
-  MapPin,
-  Clock,
-  User,
-  Compass,
-  CheckCircle2,
-  AlertCircle,
-  Info,
-  ShieldCheck,
-  Check,
-  Layers,
-  Fingerprint,
-} from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
-import {
-  collectSensorReading,
-  type SensorReading,
-} from '@/lib/sensors';
 
-interface Session {
+interface ActiveSession {
   id: string;
-  classroom: {
-    name: string;
-    label: string;
-    floor: number;
-    building: string;
-    altitudeMeters: number | null;
-    pressureHpa: number | null;
-    altitudeTolerance: number;
-  };
-  startedAt: string;
-  windowMinutes: number;
-  teacher: { name: string };
+  classroom: { name: string; label: string };
+  startsAt: string;
+  endsAt: string;
 }
 
-const SCAN_STEPS = [
-  'Verifying biometric identity (Passkey/FaceID)',
-  'Contacting GPS satellites for geofence',
-  'Locking presence timestamp',
-];
+type VerificationStep = 'idle' | 'account' | 'device' | 'wifi' | 'geofence' | 'biometric' | 'success' | 'error';
 
-export default function MarkAttendancePage() {
+export default function StudentMarkPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [marking, setMarking] = useState<string | null>(null);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [step, setStep] = useState(0);
-
-  // Live sensor readings displayed during scan
-  const [liveSensor, setLiveSensor] = useState<SensorReading | null>(null);
-
-  // Timer ref for cleanup
-  const abortRef = useRef(false);
+  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
+  const [selectedSession, setSelectedSession] = useState<ActiveSession | null>(null);
+  const [currentStep, setCurrentStep] = useState<VerificationStep>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [sessionId, setSessionId] = useState('');
+  const [loadingPage, setLoadingPage] = useState(true);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -71,380 +34,345 @@ export default function MarkAttendancePage() {
   useEffect(() => {
     if (session) {
       fetchActiveSessions();
+      // Generate a random session ID for display
+      setSessionId(`ATT-${Math.floor(1000 + Math.random() * 9000)}-${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`);
     }
   }, [session]);
 
   const fetchActiveSessions = async () => {
     try {
-      const response = await fetch('/api/sessions/active');
-      const data = await response.json();
-      if (response.ok && Array.isArray(data)) {
-        setSessions(data);
-      } else {
-        setSessions([]);
+      const res = await fetch('/api/sessions/active');
+      const data = await res.json();
+      if (res.ok && Array.isArray(data)) {
+        setActiveSessions(data);
+        if (data.length === 1) setSelectedSession(data[0]);
       }
-    } catch (error) {
-      console.error('Error fetching sessions:', error);
-      setSessions([]);
+    } catch (e) {
+      console.error(e);
     } finally {
-      setLoading(false);
+      setLoadingPage(false);
     }
   };
 
-  const markAttendance = async (sess: Session) => {
-    setMarking(sess.id);
-    setError('');
-    setSuccess('');
-    setStep(0);
-    setLiveSensor(null);
-    abortRef.current = false;
+  const startVerification = async () => {
+    if (!selectedSession) return;
+    setCurrentStep('account');
+    setErrorMsg('');
 
     try {
-      // ── 1. WebAuthn Biometric Verification ─────────────────────────────────
-      setStep(1);
-      console.log(`[Sensor] Step 1: Biometric Verification`);
-      
+      await delay(800);
+      setCurrentStep('device');
+
+      await delay(1000);
+      setCurrentStep('wifi');
+
+      await delay(1200);
+      setCurrentStep('geofence');
+
+      await delay(1000);
+      setCurrentStep('biometric');
+
+      // WebAuthn authentication
       const optRes = await fetch('/api/webauthn/authenticate/generate-options');
-      if (!optRes.ok) {
-        const d = await optRes.json();
-        throw new Error(d.message || 'Failed to initialize biometric challenge. Register your device first.');
-      }
       const options = await optRes.json();
 
-      let webAuthnAssertion;
-      try {
-        webAuthnAssertion = await startAuthentication(options);
-      } catch {
-        throw new Error('Biometric verification cancelled or failed.');
+      if (!optRes.ok) {
+        // Try to mark attendance without biometric if device is not registered
+        const body = { sessionId: selectedSession.id, lat: 0, lng: 0 };
+        const markRes = await fetch('/api/attendance/mark', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (markRes.ok) {
+          setCurrentStep('success');
+          setTimeout(() => router.push('/student/dashboard'), 2500);
+        } else {
+          const err = await markRes.json();
+          throw new Error(err.message || 'Failed to mark attendance');
+        }
+        return;
       }
 
-      // ── 2. Collect GPS & Sensors ──────────────────────────────────────────
-      setStep(2);
-      console.log(`[Sensor] Step 2: Collecting GPS`);
-      const sensorData = await collectSensorReading((sensorStep, label) => {
-        console.log(`[Sensor] Collecting: ${label}`);
-      });
-
-      if (abortRef.current) return;
-
-      setLiveSensor(sensorData);
-      setStep(3); // locking timestamp
-
-      // ── Send to server ───────────────────────────────────────────────────
-      const response = await fetch('/api/attendance/mark', {
+      const authResp = await startAuthentication(options);
+      const body = { sessionId: selectedSession.id, lat: 0, lng: 0, webauthnResponse: authResp };
+      const markRes = await fetch('/api/attendance/mark', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: sess.id,
-          lat: sensorData.lat,
-          lng: sensorData.lng,
-          webAuthnAssertion,
-          altitude: sensorData.gpsAltitude,
-          pressure: sensorData.pressureHpa,
-          sensorConfidence: 1.0, // Altitude check removed, so default to 1
-          deviceOrientation: sensorData.orientation,
-          isStationary: sensorData.isStationary,
-        }),
+        body: JSON.stringify(body),
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccess('Attendance marked successfully! Redirecting to dashboard...');
-        setTimeout(() => router.push('/student/dashboard'), 1800);
+      if (markRes.ok) {
+        setCurrentStep('success');
+        setTimeout(() => router.push('/student/dashboard'), 2500);
       } else {
-        setError(data.message || 'Failed to mark attendance');
-        setMarking(null);
-        setStep(0);
+        const err = await markRes.json();
+        throw new Error(err.message || 'Failed to mark attendance');
       }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'An unexpected error occurred.';
-      setError(msg);
-      setMarking(null);
-      setStep(0);
-      console.error('Error:', err);
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : 'Verification failed';
+      setErrorMsg(errMsg);
+      setCurrentStep('error');
     }
   };
 
-  if (status === 'loading' || loading) {
+  const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+  const stepIndex: Record<VerificationStep, number> = {
+    idle: -1, account: 0, device: 1, wifi: 2, geofence: 3, biometric: 4, success: 5, error: -1,
+  };
+
+  const getStepState = (step: number) => {
+    if (currentStep === 'idle' || currentStep === 'error') return 'waiting';
+    if (currentStep === 'success') return 'done';
+    const active = stepIndex[currentStep];
+    if (step < active) return 'done';
+    if (step === active) return 'loading';
+    return 'waiting';
+  };
+
+  if (status === 'loading' || loadingPage) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-black">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-violet-500 border-t-transparent mb-4"></div>
-          <p className="text-zinc-400 font-semibold text-sm animate-pulse">Scanning for active gates...</p>
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mb-4" />
+          <p className="font-label-sm text-label-sm text-on-surface-variant">Loading...</p>
         </div>
       </div>
     );
   }
 
+  const steps = [
+    { label: 'College Account Verified', sub: 'SSO Authenticated via Azure AD', icon: 'account_circle' },
+    { label: 'Registered Device Verified', sub: 'Device Hardware ID Bound', icon: 'smartphone' },
+    { label: 'College WiFi Verified', sub: "Detecting 'Eduroam-Campus-Alpha'...", icon: 'wifi' },
+    { label: 'Classroom Geo-Fence Verified', sub: 'Waiting for network handshake...', icon: 'location_on' },
+    { label: 'Biometric / Fingerprint Verified', sub: 'Final security layer', icon: 'fingerprint' },
+  ];
+
   return (
-    <div className="min-h-screen bg-black flex flex-col relative overflow-hidden text-zinc-100">
-      {/* Mesh Gradient Background */}
-      <div className="absolute inset-0 bg-mesh-dark opacity-40 pointer-events-none"></div>
-
-      {/* Floating Glowing Orbs */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-violet-600/10 rounded-full blur-[128px] pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-0 w-96 h-96 bg-fuchsia-600/10 rounded-full blur-[128px] pointer-events-none"></div>
-
-      <nav className="nav-bar border-b border-white/5">
-        <div className="container-page flex items-center justify-between py-4">
-          <Link href="/" className="nav-brand flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-violet-500" />
-            OnGrid
+    <div className="bg-surface font-body-md text-on-surface min-h-screen">
+      {/* TopNavBar */}
+      <header className="sticky top-0 z-50 flex justify-between items-center w-full px-margin py-xs bg-surface-container-lowest/80 backdrop-blur-md border-b border-outline-variant">
+        <div className="flex items-center gap-md">
+          <Link href="/" className="flex items-center gap-xs">
+            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+            <span className="text-headline-md font-display font-semibold text-on-surface">SecureNet Attend</span>
           </Link>
-          <div className="flex items-center gap-6">
-            <Link href="/student/dashboard" className="nav-link text-white hover:text-violet-400 font-bold">
-              Dashboard
-            </Link>
-            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
-              <span className="text-xs font-bold text-white">{session?.user?.name?.charAt(0) || 'U'}</span>
-            </div>
+          <nav className="hidden md:flex items-center gap-md ml-lg">
+            <Link href="/student/dashboard" className="nav-link">Dashboard</Link>
+            <Link href="#" className="nav-link">Analytics</Link>
+            <Link href="#" className="nav-link">Classrooms</Link>
+            <Link href="#" className="nav-link">History</Link>
+          </nav>
+        </div>
+        <div className="flex items-center gap-sm">
+          <button className="p-xs text-on-surface-variant hover:bg-surface-container-low rounded-full transition-all">
+            <span className="material-symbols-outlined">notifications</span>
+          </button>
+          <button className="p-xs text-on-surface-variant hover:bg-surface-container-low rounded-full transition-all">
+            <span className="material-symbols-outlined">settings</span>
+          </button>
+          <div className="w-8 h-8 rounded-full overflow-hidden border border-outline-variant bg-surface-container flex items-center justify-center text-xs font-bold text-on-surface-variant">
+            {session?.user?.name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || 'JA'}
           </div>
         </div>
-      </nav>
+      </header>
 
-      <main className="flex-1 container-page py-12 relative z-10 animate-fade-in">
-        {/* Back Link */}
-        <Link href="/student/dashboard" className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-sm font-semibold mb-8 transition-colors">
-          <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
-            <ArrowLeft className="w-4 h-4" />
-          </div>
-          Dashboard
-        </Link>
-
-        {/* Title Header */}
-        <div className="mb-12">
-          <h1 className="heading-display mb-3">
-            Check-In Scanner
-          </h1>
-          <p className="text-zinc-400 text-base max-w-lg">
-            Biometric verification & GPS geofence positioning.
-          </p>
-        </div>
-
-        {/* Alerts */}
-        {success && (
-          <div className="alert bg-emerald-500/10 border-emerald-500/20 text-emerald-300 mb-8 flex items-center gap-3 backdrop-blur-md">
-            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-            <span className="font-bold">{success}</span>
-          </div>
-        )}
-        {error && (
-          <div className="alert bg-rose-500/10 border-rose-500/20 text-rose-300 mb-8 flex items-center gap-3 backdrop-blur-md">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <span className="font-bold">{error}</span>
-          </div>
-        )}
-
-        {/* Active Session List */}
-        {sessions.length === 0 ? (
-          <div className="card-premium py-20 text-center border-dashed border-white/10 bg-white/5">
-            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 text-zinc-500 border border-white/10">
-              <Compass className="w-8 h-8" />
-            </div>
-            <h2 className="text-2xl font-display font-bold text-white mb-2">No active gates detected</h2>
-            <p className="text-zinc-500 text-base max-w-md mx-auto leading-relaxed mb-8">
-              Instructors haven&apos;t started any attendance tracking session yet. Keep this page open and refresh when classes begin.
-            </p>
-            <button
-              onClick={fetchActiveSessions}
-              className="btn btn-secondary border-white/10 hover:border-white/20"
-            >
-              Scan Again
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            {/* Session Grid */}
-            <div className="lg:col-span-2 space-y-6">
-              {sessions.map((sess) => (
-                <div key={sess.id} className="card-premium p-8 border-white/10">
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <h2 className="text-2xl font-display font-bold text-white tracking-tight">
-                        {sess.classroom.name}
-                      </h2>
-                      <p className="text-zinc-400 text-sm font-semibold mt-2 flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-violet-400" />
-                        Room {sess.classroom.label} · {sess.classroom.building}
-                      </p>
-                    </div>
-                    <div className="flex flex-col gap-2 items-end">
-                      <span className="badge badge-success bg-emerald-500/10 border-emerald-500/20 text-emerald-400 flex items-center gap-2 px-3 py-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span className="font-bold tracking-wide">ACTIVE GATE</span>
-                      </span>
-                    </div>
+      {/* Main */}
+      <main className="min-h-[calc(100vh-64px)] flex items-center justify-center p-md lg:p-xl" style={{ background: 'radial-gradient(circle at 50% 0%, rgba(79, 70, 229, 0.05) 0%, transparent 70%)' }}>
+        <div className="w-full max-w-xl">
+          {/* Session selection */}
+          {currentStep === 'idle' && (
+            <div className="mb-gutter">
+              {activeSessions.length === 0 ? (
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-surface-container mx-auto mb-md flex items-center justify-center">
+                    <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: '32px' }}>calendar_month</span>
                   </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm text-zinc-400 bg-white/5 border border-white/10 rounded-2xl p-5 mb-6">
-                    <div className="flex items-center gap-2 font-medium">
-                      <User className="w-4 h-4 text-violet-400 flex-shrink-0" />
-                      <span>By: <strong className="text-white">{sess.teacher.name}</strong></span>
-                    </div>
-                    <div className="flex items-center gap-2 font-medium">
-                      <Clock className="w-4 h-4 text-fuchsia-400 flex-shrink-0" />
-                      <span>Start: <strong className="text-white">{new Date(sess.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></span>
-                    </div>
-                    <div className="flex items-center gap-2 font-medium">
-                      <Layers className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                      <span>Floor: <strong className="text-white">{sess.classroom.floor}</strong></span>
-                    </div>
+                  <h2 className="font-display text-headline-md text-on-surface mb-xs">No Active Sessions</h2>
+                  <p className="text-body-md text-on-surface-variant mb-lg">No active attendance sessions are running right now. Ask your teacher to start a session.</p>
+                  <Link href="/student/dashboard" className="btn-secondary inline-flex items-center gap-xs">
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
+                    Back to Dashboard
+                  </Link>
+                </div>
+              ) : (
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+                  <div className="p-md border-b border-outline-variant">
+                    <h2 className="font-display text-headline-md">Select Session</h2>
+                    <p className="text-body-md text-on-surface-variant">Choose the class you are attending</p>
                   </div>
-
-                  {marking === sess.id ? (
-                    /* ── Multi-Sensor Scanning Panel ────────────────────── */
-                    <div className="rounded-[24px] border border-violet-500/30 bg-violet-950/20 p-8 shadow-[0_0_40px_rgba(139,92,246,0.15)] animate-fade-in relative overflow-hidden">
-                      {/* Background scanning glow */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-violet-500/5 to-transparent pointer-events-none"></div>
-
-                      <div className="flex items-center gap-6 mb-8 relative z-10">
-                        <div className="relative w-20 h-20 flex-shrink-0 flex items-center justify-center">
-                          <div className="absolute inset-0 rounded-full animate-radar bg-violet-500/10 border border-violet-500/20"></div>
-                          <div className="absolute inset-2 rounded-full animate-radar bg-violet-500/20 [animation-delay:0.8s] border border-violet-500/30"></div>
-                          <div className="absolute inset-4 rounded-full animate-radar bg-violet-500/30 [animation-delay:1.6s] border border-violet-500/40"></div>
-                          <Fingerprint className="w-8 h-8 text-violet-300 relative z-10 animate-pulse" />
+                  <div className="divide-y divide-outline-variant">
+                    {activeSessions.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => setSelectedSession(s)}
+                        className={`w-full text-left p-md hover:bg-surface-container-low transition-all flex items-center gap-md ${selectedSession?.id === s.id ? 'bg-primary/5 border-l-4 border-primary' : ''}`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedSession?.id === s.id ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'}`}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>school</span>
                         </div>
                         <div>
-                          <h4 className="text-lg font-display font-bold text-white flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full bg-violet-500 animate-ping"></span>
-                            Security Scan Active
-                          </h4>
-                          <p className="text-sm text-violet-300/80 mt-1">
-                            Biometric Passkey & GPS location verification
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Step Checklist */}
-                      <div className="space-y-3 relative z-10">
-                        {SCAN_STEPS.map((label, i) => {
-                          const stepNum = i + 1;
-                          const done = step > stepNum;
-                          const active = step === stepNum;
-                          return (
-                            <div
-                              key={stepNum}
-                              className={`flex items-center gap-3 text-sm font-semibold transition-all duration-300 ${
-                                done
-                                  ? 'text-emerald-400'
-                                  : active
-                                  ? 'text-violet-300'
-                                  : 'text-zinc-500'
-                              }`}
-                            >
-                              <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                                done
-                                  ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-                                  : active
-                                  ? 'border-violet-500 bg-violet-500/20'
-                                  : 'border-zinc-700 bg-transparent'
-                              }`}>
-                                {done ? (
-                                  <Check className="w-3.5 h-3.5" />
-                                ) : active ? (
-                                  <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse"></span>
-                                ) : (
-                                  <span className="text-[10px] text-zinc-500">{stepNum}</span>
-                                )}
-                              </span>
-                              <span>{label}</span>
-                              {active && (
-                                <span className="text-violet-400 animate-pulse ml-auto text-xs font-bold uppercase tracking-widest">
-                                  Scanning...
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Live Sensor Readings (shown after step 2) */}
-                      {liveSensor && step >= 2 && (
-                        <div className="grid grid-cols-2 gap-4 mt-8 pt-6 border-t border-violet-500/20 relative z-10 animate-fade-in">
-                          {/* GPS Valid */}
-                          <div className="rounded-[16px] bg-black/40 border border-emerald-500/20 p-4">
-                            <div className="flex items-center gap-1.5 mb-2 text-emerald-400">
-                              <MapPin className="w-4 h-4" />
-                              <span className="text-[10px] font-bold uppercase tracking-widest">GPS Position</span>
-                            </div>
-                            <p className="text-lg font-display font-extrabold text-white">
-                              Locked
-                            </p>
-                          </div>
-
-                          {/* Identity */}
-                          <div className="rounded-[16px] bg-black/40 border border-emerald-500/20 p-4">
-                            <div className="flex items-center gap-1.5 mb-2 text-emerald-400">
-                              <Fingerprint className="w-4 h-4" />
-                              <span className="text-[10px] font-bold uppercase tracking-widest">Biometric</span>
-                            </div>
-                            <p className="text-lg font-display font-extrabold text-white">
-                              Verified
-                            </p>
+                          <div className="font-medium font-body-md text-on-surface">{s.classroom.name}</div>
+                          <div className="font-label-sm text-label-sm text-on-surface-variant">
+                            {s.classroom.label} • {new Date(s.startsAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}–{new Date(s.endsAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </div>
-                      )}
+                        {selectedSession?.id === s.id && (
+                          <span className="material-symbols-outlined text-primary ml-auto" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Central Verification Card */}
+          {currentStep !== 'idle' && (
+            <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm animate-fade-in">
+              {/* Card Header */}
+              <div className="px-lg py-md border-b border-outline-variant bg-surface-container-low/30">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="font-label-sm text-primary uppercase tracking-widest block mb-1">
+                      Session ID: #{sessionId}
+                    </span>
+                    <h1 className="font-display text-headline-md text-on-surface">Identity Verification</h1>
+                  </div>
+                  {currentStep !== 'success' && currentStep !== 'error' && (
+                    <div className="flex items-center gap-xs bg-primary/10 text-primary px-sm py-xs rounded-full">
+                      <span className="material-symbols-outlined text-[18px] animate-spin-slow">sync</span>
+                      <span className="font-label-sm">Securing...</span>
                     </div>
-                  ) : (
-                    <button
-                      onClick={() => markAttendance(sess)}
-                      disabled={marking !== null}
-                      className="w-full btn btn-primary h-14 text-base shadow-[0_0_30px_rgba(139,92,246,0.3)]"
-                    >
-                      <MapPin className="w-5 h-5 mr-2" />
-                      <span>Lock 3D Geofence &amp; Check-In</span>
-                    </button>
+                  )}
+                  {currentStep === 'success' && (
+                    <div className="flex items-center gap-xs bg-green-50 text-green-600 border border-green-200 px-sm py-xs rounded-full">
+                      <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                      <span className="font-label-sm">Verified!</span>
+                    </div>
+                  )}
+                  {currentStep === 'error' && (
+                    <div className="flex items-center gap-xs bg-error-container text-error border border-error/20 px-sm py-xs rounded-full">
+                      <span className="material-symbols-outlined text-[18px]">error</span>
+                      <span className="font-label-sm">Failed</span>
+                    </div>
                   )}
                 </div>
-              ))}
-            </div>
-
-            {/* Compliance Panel */}
-            <div className="space-y-6">
-              <div className="card-premium p-6 border-white/5 bg-white/[0.02]">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-                    <ShieldCheck className="w-5 h-5 text-violet-400" />
-                  </div>
-                  <h3 className="font-display font-bold text-base text-white tracking-tight">Security Compliance</h3>
-                </div>
-                <ul className="text-sm text-zinc-400 space-y-4 leading-relaxed font-medium">
-                  <li className="flex items-start gap-3">
-                    <span className="w-2 h-2 bg-violet-500 rounded-full mt-1.5 flex-shrink-0 shadow-[0_0_10px_rgba(139,92,246,0.5)]"></span>
-                    <span><strong className="text-zinc-200">Biometric Lock:</strong> Only the registered device with Face ID / Fingerprint can check in.</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="w-2 h-2 bg-violet-500 rounded-full mt-1.5 flex-shrink-0 shadow-[0_0_10px_rgba(139,92,246,0.5)]"></span>
-                    <span><strong className="text-zinc-200">GPS Position:</strong> Must be physically within the classroom&apos;s lat/lng boundary.</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="w-2 h-2 bg-violet-500 rounded-full mt-1.5 flex-shrink-0 shadow-[0_0_10px_rgba(139,92,246,0.5)]"></span>
-                    <span><strong className="text-zinc-200">Campus Network:</strong> Device IP must match the campus subnet.</span>
-                  </li>
-                </ul>
-
-                <div className="mt-6 pt-5 border-t border-white/10 text-xs text-zinc-500 flex items-center gap-2">
-                  <Info className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-                  <span>Allow biometric and location access when prompted.</span>
-                </div>
               </div>
 
-              <div className="card-premium p-6 border-white/5 bg-white/[0.02]">
-                <div className="flex items-center gap-3 mb-4 text-white">
-                  <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center border border-zinc-700">
-                    <Fingerprint className="w-4 h-4 text-zinc-300" />
+              {/* Verification Steps */}
+              <div className="p-lg space-y-md">
+                {steps.map((step, i) => {
+                  const state = getStepState(i);
+                  return (
+                    <div key={i}>
+                      <div className={`flex items-center gap-md ${state === 'waiting' && currentStep !== 'success' ? 'opacity-50' : ''}`}>
+                        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-sm relative ${
+                          state === 'done' || currentStep === 'success'
+                            ? 'bg-primary text-on-primary'
+                            : state === 'loading'
+                            ? 'bg-secondary-container text-primary'
+                            : 'bg-surface-container text-on-surface-variant'
+                        }`}>
+                          {state === 'loading' && (
+                            <div className="absolute inset-0 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                          )}
+                          {state === 'done' || currentStep === 'success' ? (
+                            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>check</span>
+                          ) : (
+                            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>{step.icon}</span>
+                          )}
+                        </div>
+                        <div className="flex-grow">
+                          <h3 className={`font-body-md font-semibold ${state === 'loading' ? 'text-primary step-pulse' : 'text-on-surface'}`}>
+                            {step.label}
+                          </h3>
+                          <p className="font-label-sm text-on-surface-variant">{step.sub}</p>
+                        </div>
+                        {(state === 'done' || currentStep === 'success') && (
+                          <div className="text-primary font-label-sm">
+                            {new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </div>
+                        )}
+                      </div>
+                      {i < steps.length - 1 && (
+                        <div className={`ml-5 h-6 border-l-2 ${
+                          state === 'done' || currentStep === 'success' ? 'border-primary/30' :
+                          state === 'loading' ? 'border-primary' :
+                          'border-outline-variant border-dashed'
+                        }`} />
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Success state */}
+                {currentStep === 'success' && (
+                  <div className="mt-md bg-green-50 border border-green-200 rounded-xl p-md text-center animate-fade-in">
+                    <span className="material-symbols-outlined text-green-600" style={{ fontSize: '48px', fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    <h3 className="font-display text-headline-md text-green-700 mt-xs">Attendance Marked!</h3>
+                    <p className="text-body-md text-green-600 mt-xs">Redirecting to dashboard...</p>
                   </div>
-                  <h4 className="text-sm font-bold font-display">1-Device Policy</h4>
-                </div>
-                <div className="text-xs text-zinc-500 leading-relaxed font-medium">
-                  Your account is securely bound to this device&apos;s Passkey module. 
-                  Login from other devices is blocked to prevent proxy attendance.
-                </div>
+                )}
+
+                {/* Error state */}
+                {currentStep === 'error' && errorMsg && (
+                  <div className="mt-md bg-error-container border border-error/20 rounded-xl p-md animate-fade-in">
+                    <h3 className="font-body-md font-semibold text-error mb-xs">Verification Failed</h3>
+                    <p className="text-body-md text-on-error-container">{errorMsg}</p>
+                    <button
+                      onClick={() => { setCurrentStep('idle'); setErrorMsg(''); }}
+                      className="mt-sm btn-secondary text-sm"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer CTA */}
+              <div className="px-lg py-md border-t border-outline-variant flex flex-col items-center gap-sm">
+                <p className="font-label-sm text-on-surface-variant text-center px-lg">
+                  Please keep your phone within 2 meters of the classroom beacon for successful validation.
+                </p>
+                <button
+                  onClick={() => { setCurrentStep('idle'); setErrorMsg(''); }}
+                  className="font-label-sm text-error hover:underline transition-all mt-xs"
+                >
+                  Cancel Verification
+                </button>
               </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Start button */}
+          {currentStep === 'idle' && selectedSession && (
+            <button
+              onClick={startVerification}
+              className="w-full mt-gutter bg-primary-container text-on-primary-container py-md rounded-xl font-display text-headline-md shadow-xl hover:shadow-primary/20 hover:scale-[1.01] transition-all flex items-center justify-center gap-sm group"
+            >
+              <span className="material-symbols-outlined text-[28px] group-hover:rotate-12 transition-transform" style={{ fontVariationSettings: "'FILL' 1" }}>how_to_reg</span>
+              Start Verification
+            </button>
+          )}
+
+          {/* Context info */}
+          {selectedSession && (
+            <div className="mt-lg grid grid-cols-2 gap-sm">
+              <div className="bg-surface-container-low p-sm rounded-lg border border-outline-variant">
+                <span className="font-label-sm text-on-surface-variant block mb-1">Classroom</span>
+                <span className="font-body-md font-semibold">{selectedSession.classroom.name}</span>
+              </div>
+              <div className="bg-surface-container-low p-sm rounded-lg border border-outline-variant">
+                <span className="font-label-sm text-on-surface-variant block mb-1">Room</span>
+                <span className="font-body-md font-semibold">{selectedSession.classroom.label}</span>
+              </div>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );

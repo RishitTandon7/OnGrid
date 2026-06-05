@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, Lock, ShieldAlert, ArrowRight, UserCheck, ShieldCheck } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -43,156 +42,136 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4 relative overflow-hidden text-zinc-100">
-      {/* Mesh Gradient Background */}
-      <div className="absolute inset-0 bg-mesh-dark opacity-80 pointer-events-none"></div>
+    <div className="min-h-screen bg-background font-body-md text-on-background flex items-center justify-center p-sm relative overflow-hidden">
+      {/* Background Atmospheric Effect */}
+      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[30%] h-[30%] bg-secondary/5 rounded-full blur-[100px]" />
+      </div>
 
-      {/* Floating Glowing Orbs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-fuchsia-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none" style={{ animationDelay: '1.5s' }}></div>
-
-      {/* Grid Pattern */}
-      <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{
-        backgroundImage: 'radial-gradient(rgba(255,255,255,0.8) 1px, transparent 0)',
-        backgroundSize: '32px 32px'
-      }}></div>
-
-      <div className="w-full max-w-md relative z-10 animate-fade-in-up">
+      {/* Login Container */}
+      <main className="w-full max-w-[480px] bg-surface-container-lowest border border-outline-variant rounded-xl p-lg md:p-xl micro-shadow animate-fade-in-up">
         {/* Brand Header */}
-        <div className="flex flex-col items-center mb-10">
-          <div className="w-16 h-16 rounded-[20px] bg-gradient-to-tr from-violet-600 to-fuchsia-600 flex items-center justify-center shadow-[0_8px_32px_rgba(139,92,246,0.5)] mb-6 animate-float relative">
-            <div className="absolute inset-0 rounded-[20px] bg-white/20 blur-md pointer-events-none"></div>
-            <ShieldCheck strokeWidth="2" className="w-8 h-8 text-white relative z-10" />
+        <header className="flex flex-col items-center text-center mb-lg">
+          <div className="mb-md">
+            <div className="w-16 h-16 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center animate-float">
+              <span className="material-symbols-outlined text-primary" style={{ fontSize: '32px', fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+            </div>
           </div>
-          <h1 className="heading-display mb-2">
-            OnGrid
-          </h1>
-          <p className="text-zinc-400 text-sm font-medium tracking-wide">
-            Next-generation biometric & geofence attendance
-          </p>
-        </div>
+          <h1 className="font-headline-lg text-headline-lg text-on-surface mb-xs">Welcome Back</h1>
+          <p className="font-body-md text-body-md text-on-surface-variant">Sign in to your secure attendance portal</p>
+        </header>
 
-        {/* Card Wrapper */}
-        <div className="card-premium">
-          <h2 className="text-2xl font-display font-bold text-white mb-8 tracking-tight text-center">
-            Welcome Back
-          </h2>
+        {/* Login Form */}
+        <form className="space-y-md" onSubmit={handleSubmit}>
+          {/* Email Field */}
+          <div className="flex flex-col gap-xs">
+            <label className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider" htmlFor="email">
+              College Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full px-sm py-[10px] bg-transparent border border-outline-variant rounded-lg font-body-md text-on-surface placeholder:text-outline focus:border-primary input-focus-ring transition-all duration-200"
+              placeholder="name@college.edu"
+              autoComplete="email"
+            />
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="form-group">
-              <label className="label">Email Address</label>
-              <div className="relative group">
-                <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500 group-focus-within:text-violet-400 transition-colors">
-                  <Mail className="w-5 h-5" />
-                </span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="input pl-12"
-                  placeholder="name@college.edu"
-                  autoComplete="email"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="label flex justify-between items-center">
-                <span>Password</span>
-                <Link href="#" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">Forgot?</Link>
+          {/* Password Field */}
+          <div className="flex flex-col gap-xs">
+            <div className="flex justify-between items-center">
+              <label className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider" htmlFor="password">
+                Password
               </label>
-              <div className="relative group">
-                <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500 group-focus-within:text-violet-400 transition-colors">
-                  <Lock className="w-5 h-5" />
-                </span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="input pl-12"
-                  placeholder="••••••••"
-                  autoComplete="current-password"
-                />
-              </div>
+              <Link href="#" className="font-label-sm text-label-sm text-primary hover:underline transition-all">
+                Forgot password?
+              </Link>
             </div>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full px-sm py-[10px] bg-transparent border border-outline-variant rounded-lg font-body-md text-on-surface placeholder:text-outline focus:border-primary input-focus-ring transition-all duration-200"
+              placeholder="••••••••"
+              autoComplete="current-password"
+            />
+          </div>
 
-            {error && (
-              <div className="alert alert-error animate-fade-in flex items-center gap-3">
-                <ShieldAlert className="w-5 h-5 flex-shrink-0" />
-                <span className="flex-1 text-sm">{error}</span>
-              </div>
-            )}
-
-            {/* Quick Demo Fills */}
-            <div className="pt-2">
-              <div className="flex items-center justify-between text-[10px] text-zinc-500 font-bold mb-3 tracking-widest uppercase">
-                <span>Demo Access</span>
-                <span>Auto-fill</span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('teacher@college.edu');
-                    setPassword('OnGridTeacherSecure2026!');
-                  }}
-                  className="px-4 py-3 bg-white/5 hover:bg-violet-500/10 text-zinc-300 hover:text-white border border-white/10 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-300 hover:border-violet-500/30"
-                >
-                  <UserCheck className="w-4 h-4 text-violet-400" />
-                  Teacher
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('alice@college.edu');
-                    setPassword('OnGridStudentSecure2026!');
-                  }}
-                  className="px-4 py-3 bg-white/5 hover:bg-emerald-500/10 text-zinc-300 hover:text-white border border-white/10 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-300 hover:border-emerald-500/30"
-                >
-                  <UserCheck className="w-4 h-4 text-emerald-400" />
-                  Student
-                </button>
-              </div>
+          {/* Error */}
+          {error && (
+            <div className="flex items-center gap-xs px-sm py-xs bg-error-container border border-error/20 rounded-lg animate-fade-in">
+              <span className="material-symbols-outlined text-error" style={{ fontSize: '18px' }}>error</span>
+              <span className="font-body-md text-on-error-container text-sm flex-1">{error}</span>
             </div>
+          )}
 
+          {/* Demo Fills */}
+          <div className="pt-xs border-t border-outline-variant">
+            <p className="font-label-sm text-label-sm text-outline uppercase tracking-wider text-center mb-sm">Demo Access</p>
+            <div className="grid grid-cols-2 gap-xs">
+              <button
+                type="button"
+                onClick={() => { setEmail('teacher@college.edu'); setPassword('OnGridTeacherSecure2026!'); }}
+                className="px-sm py-xs bg-surface-container-low hover:bg-primary/10 text-on-surface-variant hover:text-primary border border-outline-variant rounded-lg text-xs font-label-sm flex items-center justify-center gap-xs transition-all duration-200 hover:border-primary"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>school</span>
+                Teacher
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail('alice@college.edu'); setPassword('OnGridStudentSecure2026!'); }}
+                className="px-sm py-xs bg-surface-container-low hover:bg-primary/10 text-on-surface-variant hover:text-primary border border-outline-variant rounded-lg text-xs font-label-sm flex items-center justify-center gap-xs transition-all duration-200 hover:border-primary"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>person</span>
+                Student
+              </button>
+            </div>
+          </div>
+
+          {/* Action Button */}
+          <div className="pt-xs">
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary w-full mt-4 h-14 text-base"
+              className="w-full h-[44px] bg-primary-container text-on-primary font-body-md font-medium rounded-lg hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-xs disabled:opacity-50"
             >
               {loading ? (
                 <>
-                  <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-white/30 border-t-white mr-3"></span>
-                  Authenticating...
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
+                  <span>Verifying...</span>
                 </>
               ) : (
                 <>
-                  Sign In
-                  <ArrowRight className="w-5 h-5 ml-2" />
+                  <span>Sign In</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_forward</span>
                 </>
               )}
             </button>
-          </form>
-
-          {/* Registration link */}
-          <div className="mt-8 pt-6 border-t border-white/10 text-center">
-            <p className="text-zinc-400 text-sm font-medium">
-              New to OnGrid?{' '}
-              <Link href="/auth/register" className="text-violet-400 font-bold hover:text-violet-300 transition-colors">
-                Create an account
-              </Link>
-            </p>
           </div>
-        </div>
+        </form>
 
-        {/* Footer info box */}
-        <div className="mt-8 text-center text-[11px] text-zinc-600 font-medium tracking-wide">
-          <p className="mb-1">Secure Enterprise Access Environment</p>
-          <p>© 2026 OnGrid Systems Inc.</p>
-        </div>
-      </div>
+        {/* Secondary Actions */}
+        <nav className="mt-md pt-md border-t border-outline-variant flex flex-col items-center gap-sm">
+          <Link href="#" className="flex items-center gap-xs font-body-md text-on-surface-variant hover:text-primary transition-colors group">
+            <span className="material-symbols-outlined text-outline group-hover:text-primary transition-colors" style={{ fontSize: '18px' }}>phonelink_setup</span>
+            <span>Register new device</span>
+          </Link>
+        </nav>
+
+        {/* Footer */}
+        <footer className="mt-xl flex flex-col items-center gap-sm">
+          <div className="flex items-center gap-xs px-sm py-xs bg-surface-container-low rounded-full">
+            <span className="material-symbols-outlined text-primary" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+            <span className="font-label-sm text-label-sm text-on-surface-variant">Protected by SecureNet Biometric Verification</span>
+          </div>
+        </footer>
+      </main>
     </div>
   );
 }

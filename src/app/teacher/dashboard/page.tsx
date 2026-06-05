@@ -4,19 +4,6 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  Plus, 
-  Calendar, 
-  Users, 
-  Clock, 
-  Activity, 
-  AlertCircle, 
-  CheckCircle2, 
-  Sliders, 
-  ChevronRight,
-  ShieldCheck,
-  LayoutDashboard
-} from 'lucide-react';
 
 interface Session {
   id: string;
@@ -37,13 +24,12 @@ export default function TeacherDashboard() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/login');
-    }
-  }, [status, router]);
+    if (status === 'unauthenticated') router.push('/auth/login');
+    if (status === 'authenticated' && session?.user?.role !== 'TEACHER') router.push('/');
+  }, [status, session, router]);
 
   useEffect(() => {
-    if (session) {
+    if (session && session.user?.role === 'TEACHER') {
       fetchSessions();
     }
   }, [session]);
@@ -91,11 +77,10 @@ export default function TeacherDashboard() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-black">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-violet-500 border-t-transparent mb-4"></div>
-          <p className="text-zinc-400 font-semibold text-sm animate-pulse">Loading sessions...</p>
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <span className="material-symbols-outlined text-primary animate-spin-slow" style={{ fontSize: '48px' }}>
+          autorenew
+        </span>
       </div>
     );
   }
@@ -104,175 +89,201 @@ export default function TeacherDashboard() {
   const totalStudentsMarked = sessions.reduce((acc, s) => acc + s.records.length, 0);
 
   return (
-    <div className="min-h-screen bg-black flex flex-col relative overflow-hidden text-zinc-100">
-      {/* Mesh Gradient Background */}
-      <div className="absolute inset-0 bg-mesh-dark opacity-40 pointer-events-none"></div>
+    <div className="min-h-screen bg-background text-on-surface font-sans flex flex-col md:flex-row relative">
+      {/* Background Effect */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute top-[0%] left-[50%] -translate-x-1/2 w-[80%] h-[50%] bg-primary/5 rounded-full blur-[150px]" />
+      </div>
 
-      {/* Floating Glowing Orbs */}
-      <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-violet-600/10 rounded-full blur-[150px] pointer-events-none"></div>
-
-      <nav className="nav-bar border-b border-white/5">
-        <div className="container-page flex items-center justify-between py-4">
-          <Link href="/" className="nav-brand flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-violet-500" />
-            OnGrid Instructor
-          </Link>
-          <div className="flex items-center gap-6">
-            <Link href="/teacher/classrooms" className="nav-link text-zinc-400 hover:text-white font-bold transition-colors">
-              Classrooms
-            </Link>
-            <Link href="/teacher/sessions/new" className="nav-link text-zinc-400 hover:text-white font-bold transition-colors">
-              New Session
-            </Link>
-            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
-              <span className="text-xs font-bold text-white">{session?.user?.name?.charAt(0) || 'U'}</span>
-            </div>
+      {/* Top Navbar */}
+      <nav className="fixed top-0 left-0 right-0 h-16 bg-surface/80 backdrop-blur-md border-b border-outline-variant flex items-center justify-between px-md z-50">
+        <div className="flex items-center gap-xs">
+          <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+          <span className="font-display font-semibold text-title-md tracking-tight">SecureNet Attend</span>
+        </div>
+        <div className="flex items-center gap-md text-sm font-medium">
+          <Link href="/teacher/dashboard" className="text-primary border-b-2 border-primary pb-1">Dashboard</Link>
+          <Link href="/teacher/classrooms" className="text-on-surface-variant hover:text-primary transition-colors">Classrooms</Link>
+        </div>
+        <div className="flex items-center gap-sm">
+          <span className="material-symbols-outlined text-on-surface-variant hover:text-on-surface cursor-pointer">notifications</span>
+          <span className="material-symbols-outlined text-on-surface-variant hover:text-on-surface cursor-pointer">settings</span>
+          <div className="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold text-xs uppercase cursor-pointer">
+            {session?.user?.name?.slice(0, 2) || 'DA'}
           </div>
         </div>
       </nav>
 
-      <main className="flex-1 container-page py-12 relative z-10 animate-fade-in">
-        {/* Dashboard Title */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+      {/* Sidebar */}
+      <aside className="fixed left-0 top-16 bottom-0 w-[240px] border-r border-outline-variant bg-surface/50 backdrop-blur-sm p-md flex flex-col z-40 hidden md:flex">
+        <div className="flex flex-col gap-xs mb-xl">
+          <div className="flex items-center gap-xs text-primary mb-xs">
+            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+            <div className="flex flex-col">
+              <span className="font-display font-semibold text-title-sm leading-tight">Admin</span>
+              <span className="font-display font-semibold text-title-sm leading-tight">Panel</span>
+            </div>
+          </div>
+          <span className="text-label-sm font-mono text-on-surface-variant">SecureNet Verify</span>
+        </div>
+        
+        <nav className="flex flex-col gap-xs flex-1">
+          <Link href="/teacher/dashboard" className="sidebar-link-active">
+            <span className="material-symbols-outlined">dashboard</span>
+            <span className="flex-1">Overview</span>
+          </Link>
+          <Link href="/teacher/classrooms" className="sidebar-link">
+            <span className="material-symbols-outlined">location_on</span>
+            <span className="flex-1 flex flex-col leading-tight">
+              <span>Geo-</span>
+              <span>Fencing</span>
+            </span>
+          </Link>
+          <div className="sidebar-link opacity-50 cursor-not-allowed">
+            <span className="material-symbols-outlined">history</span>
+            <span className="flex-1">Session Logs</span>
+          </div>
+          <div className="sidebar-link opacity-50 cursor-not-allowed">
+            <span className="material-symbols-outlined">tune</span>
+            <span className="flex-1">Settings</span>
+          </div>
+        </nav>
+
+        <div className="mt-auto flex flex-col gap-sm pt-md border-t border-outline-variant">
+          <Link href="/teacher/sessions/new" className="btn-primary justify-center">
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            New Session
+          </Link>
+          <Link href="/api/auth/signout" className="sidebar-link mt-xs">
+            <span className="material-symbols-outlined">logout</span>
+            <span className="flex-1">Sign Out</span>
+          </Link>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 mt-16 md:ml-[240px] p-md md:p-xl animate-fade-in-up">
+        
+        <div className="flex items-end justify-between mb-xl">
           <div>
-            <h1 className="heading-display mb-3 flex items-center gap-3">
-              <LayoutDashboard className="w-8 h-8 text-violet-400" />
-              Instructor Dashboard
-            </h1>
-            <p className="text-zinc-400 text-base max-w-lg">
+            <h1 className="font-display text-headline-md font-semibold text-on-surface mb-xs">Overview Dashboard</h1>
+            <p className="text-body-md text-on-surface-variant max-w-lg">
               Manage your active attendance sessions, review student check-ins, and orchestrate live coordinate verification.
             </p>
           </div>
-          <Link href="/teacher/sessions/new" className="btn btn-primary shadow-[0_0_40px_rgba(139,92,246,0.3)] px-8 h-14">
-            <Plus className="w-5 h-5 mr-2" />
-            Start Session
-          </Link>
         </div>
 
         {/* Alerts */}
         {success && (
-          <div className="alert bg-emerald-500/10 border-emerald-500/20 text-emerald-300 mb-8 flex items-center gap-3 backdrop-blur-md">
-            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-            <span className="font-bold">{success}</span>
+          <div className="alert bg-primary/10 border-primary text-primary mb-md">
+            <span className="material-symbols-outlined">check_circle</span>
+            <span className="font-medium">{success}</span>
           </div>
         )}
         {error && (
-          <div className="alert bg-rose-500/10 border-rose-500/20 text-rose-300 mb-8 flex items-center gap-3 backdrop-blur-md">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <span className="font-bold">{error}</span>
+          <div className="alert bg-error/10 border-error text-error mb-md">
+            <span className="material-symbols-outlined">error</span>
+            <span className="font-medium">{error}</span>
           </div>
         )}
 
-        {/* Quick Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="card-premium py-8 border-white/5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-[16px] bg-white/5 border border-white/10 flex items-center justify-center text-indigo-400">
-                <Calendar className="w-6 h-6" />
-              </div>
+        {/* Metrics Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-md mb-xl">
+          <div className="card border-outline-variant/50 bg-surface/50 backdrop-blur-sm">
+            <div className="flex items-center gap-sm mb-md text-on-surface-variant">
+              <span className="material-symbols-outlined">calendar_today</span>
+              <span className="text-label-md font-medium uppercase tracking-wider">Total Sessions</span>
             </div>
-            <div>
-              <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Total Sessions</p>
-              <h3 className="text-4xl font-display font-extrabold text-white">{sessions.length}</h3>
-            </div>
+            <h3 className="font-display text-display-sm font-semibold">{sessions.length}</h3>
           </div>
 
-          <div className="card-premium py-8 border-white/5 relative overflow-hidden group">
-            {activeCount > 0 && (
-              <div className="absolute inset-0 bg-emerald-500/5 group-hover:bg-emerald-500/10 transition-colors pointer-events-none"></div>
-            )}
-            <div className="flex items-center justify-between mb-4 relative z-10">
-              <div className={`w-12 h-12 rounded-[16px] border flex items-center justify-center ${activeCount > 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-white/5 border-white/10 text-zinc-500'}`}>
-                <Activity className={`w-6 h-6 ${activeCount > 0 ? 'animate-pulse' : ''}`} />
-              </div>
+          <div className="card border-outline-variant/50 bg-surface/50 backdrop-blur-sm relative overflow-hidden group">
+            {activeCount > 0 && <div className="absolute inset-0 bg-primary/5 group-hover:bg-primary/10 transition-colors" />}
+            <div className={`flex items-center gap-sm mb-md ${activeCount > 0 ? 'text-primary' : 'text-on-surface-variant'} relative z-10`}>
+              <span className={`material-symbols-outlined ${activeCount > 0 ? 'animate-pulse' : ''}`}>sensors</span>
+              <span className="text-label-md font-medium uppercase tracking-wider">Active Sessions</span>
             </div>
-            <div className="relative z-10">
-              <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Active Sessions</p>
-              <h3 className="text-4xl font-display font-extrabold text-white">{activeCount}</h3>
-            </div>
+            <h3 className="font-display text-display-sm font-semibold relative z-10">{activeCount}</h3>
           </div>
 
-          <div className="card-premium py-8 border-white/5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-[16px] bg-white/5 border border-white/10 flex items-center justify-center text-violet-400">
-                <Users className="w-6 h-6" />
-              </div>
+          <div className="card border-outline-variant/50 bg-surface/50 backdrop-blur-sm">
+            <div className="flex items-center gap-sm mb-md text-on-surface-variant">
+              <span className="material-symbols-outlined">group</span>
+              <span className="text-label-md font-medium uppercase tracking-wider">Total Check-ins</span>
             </div>
-            <div>
-              <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Total Check-ins</p>
-              <h3 className="text-4xl font-display font-extrabold text-white">{totalStudentsMarked}</h3>
-            </div>
+            <h3 className="font-display text-display-sm font-semibold">{totalStudentsMarked}</h3>
           </div>
         </div>
 
         {/* Sessions Content */}
         {sessions.length === 0 ? (
-          <div className="card-premium py-20 text-center border-dashed border-white/10 bg-white/5">
-            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 text-zinc-500 border border-white/10">
-              <Calendar className="w-8 h-8" />
+          <div className="card border-dashed flex flex-col items-center justify-center text-center py-2xl bg-surface/30">
+            <div className="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant mb-md">
+              <span className="material-symbols-outlined text-[32px]">calendar_add_on</span>
             </div>
-            <h2 className="text-2xl font-display font-bold text-white mb-2">No sessions recorded</h2>
-            <p className="text-zinc-500 text-base max-w-md mx-auto leading-relaxed mb-8">
+            <h2 className="font-display text-title-lg font-semibold mb-xs">No sessions recorded</h2>
+            <p className="text-body-md text-on-surface-variant max-w-md mb-lg">
               Before students can check-in, you must start an active attendance session for an existing classroom.
             </p>
-            <Link href="/teacher/sessions/new" className="btn btn-primary h-14 px-8 text-base shadow-[0_0_30px_rgba(139,92,246,0.3)]">
-              Start Your First Session
+            <Link href="/teacher/sessions/new" className="btn-primary">
+              Start First Session
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
             {sessions.map((sess) => (
-              <div key={sess.id} className={`card-premium p-6 flex flex-col justify-between transition-all duration-300 ${sess.isActive ? 'border-emerald-500/30 bg-emerald-950/10 shadow-[0_0_30px_rgba(16,185,129,0.1)]' : 'border-white/5 bg-white/5'}`}>
+              <div key={sess.id} className={`card flex flex-col justify-between transition-all ${sess.isActive ? 'border-primary shadow-sm bg-primary/5' : 'border-outline-variant/50 bg-surface/50'}`}>
                 <div>
-                  <div className="flex items-start justify-between mb-6">
+                  <div className="flex items-start justify-between mb-md">
                     <div>
-                      <h2 className="text-xl font-display font-bold text-white tracking-tight leading-tight mb-1">
+                      <h2 className="font-display text-title-md font-semibold text-on-surface leading-tight mb-xs">
                         {sess.classroom.name}
                       </h2>
-                      <p className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Room {sess.classroom.label}</p>
+                      <p className="text-label-sm font-mono text-on-surface-variant uppercase tracking-wider">
+                        Room {sess.classroom.label}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`badge px-2.5 py-1 flex items-center gap-1.5 ${sess.isActive ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/10 text-zinc-400 border border-white/10'}`}>
-                        {sess.isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>}
+                    <div className="flex items-center">
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-label-sm font-medium border ${sess.isActive ? 'bg-primary/10 text-primary border-primary/30' : 'bg-surface-container text-on-surface-variant border-outline-variant'}`}>
+                        {sess.isActive && <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />}
                         {sess.isActive ? 'LIVE' : 'ENDED'}
                       </span>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 text-sm text-zinc-400 bg-black/40 border border-white/5 rounded-2xl p-4 mb-6">
-                    <div className="flex items-center gap-2 font-medium">
-                      <Clock className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-                      <span className="text-white">{new Date(sess.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  <div className="bg-surface border border-outline-variant/50 rounded-lg p-sm mb-md grid grid-cols-2 gap-sm text-body-sm text-on-surface">
+                    <div className="flex items-center gap-xs">
+                      <span className="material-symbols-outlined text-[16px] text-primary">schedule</span>
+                      <span>{new Date(sess.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                    <div className="flex items-center gap-2 font-medium">
-                      <Users className="w-4 h-4 text-fuchsia-400 flex-shrink-0" />
-                      <span className="text-white">{sess.records.length} Present</span>
+                    <div className="flex items-center gap-xs">
+                      <span className="material-symbols-outlined text-[16px] text-primary">how_to_reg</span>
+                      <span>{sess.records.length} Present</span>
                     </div>
-                    <div className="flex items-center gap-2 font-medium col-span-2 mt-1">
-                      <Sliders className="w-4 h-4 text-zinc-500 flex-shrink-0" />
-                      <span>Window: <strong className="text-white">{sess.windowMinutes} mins</strong></span>
+                    <div className="flex items-center gap-xs col-span-2 text-on-surface-variant">
+                      <span className="material-symbols-outlined text-[16px]">timelapse</span>
+                      <span>Window: <span className="text-on-surface font-medium">{sess.windowMinutes} mins</span></span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex gap-3 mt-2">
+                <div className="flex gap-sm">
                   <button
                     onClick={() => toggleSession(sess.id, sess.isActive)}
-                    className={`flex-1 btn h-12 text-sm font-bold border-none transition-all ${
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium text-sm transition-all text-center ${
                       sess.isActive 
-                        ? 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 hover:text-rose-300' 
-                        : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 hover:text-emerald-300'
+                        ? 'bg-error/10 text-error hover:bg-error/20' 
+                        : 'bg-primary/10 text-primary hover:bg-primary/20'
                     }`}
                   >
                     {sess.isActive ? 'End Session' : 'Reopen'}
                   </button>
                   <Link
                     href={`/teacher/sessions/${sess.id}`}
-                    className="flex-[1.5] btn btn-secondary h-12 text-sm font-bold border-white/10 hover:border-white/20 bg-white/5 flex items-center justify-center gap-2"
+                    className="flex-1 btn-secondary justify-center gap-xs"
                   >
-                    <span>View Details</span>
-                    <ChevronRight className="w-4 h-4" />
+                    <span>View</span>
+                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                   </Link>
                 </div>
               </div>

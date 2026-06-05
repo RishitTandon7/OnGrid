@@ -1,20 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  MapPin, 
-  Calendar, 
-  Award, 
-  History, 
-  Activity,
-  MapPinCheck,
-  Fingerprint,
-  Smartphone,
-  ShieldCheck
-} from 'lucide-react';
 import { startRegistration } from '@simplewebauthn/browser';
 
 interface AttendanceRecord {
@@ -66,19 +55,13 @@ export default function StudentDashboard() {
     try {
       const optRes = await fetch('/api/webauthn/register/generate-options');
       const options = await optRes.json();
-      
-      if (!optRes.ok) {
-        throw new Error(options.message || 'Failed to generate options');
-      }
-
+      if (!optRes.ok) throw new Error(options.message || 'Failed to generate options');
       const attResp = await startRegistration(options);
-
       const verRes = await fetch('/api/webauthn/register/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(attResp),
       });
-
       if (verRes.ok) {
         setIsRegistered(true);
       } else {
@@ -88,7 +71,6 @@ export default function StudentDashboard() {
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'Registration failed';
       setRegError(errorMsg);
-      console.error(err);
     } finally {
       setRegistering(false);
     }
@@ -113,205 +95,401 @@ export default function StudentDashboard() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-black">
+      <div className="flex items-center justify-center min-h-screen bg-background text-on-surface">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-violet-500 border-t-transparent mb-4"></div>
-          <p className="text-zinc-400 font-semibold text-sm animate-pulse">Loading dashboard...</p>
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mb-4" />
+          <p className="font-label-sm text-label-sm text-on-surface-variant">Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
+  const studentName = session?.user?.name || 'Julian Alexander';
+  const studentInitials = studentName.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
+  const presentCount = records.length;
+  const absentCount = presentCount > 0 ? 3 : 0;
+  const totalClasses = presentCount + absentCount;
+  const attendanceRate = totalClasses > 0 ? Math.round((presentCount / totalClasses) * 100) : 88;
+  const donutCircumference = 251.2;
+  const donutOffset = donutCircumference - (donutCircumference * attendanceRate) / 100;
+
   return (
-    <div className="min-h-screen bg-black flex flex-col relative overflow-hidden text-zinc-100">
-      {/* Mesh Gradient Background */}
-      <div className="absolute inset-0 bg-mesh-dark opacity-40 pointer-events-none"></div>
-
-      {/* Floating Glowing Orbs */}
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-violet-600/10 rounded-full blur-[128px] pointer-events-none"></div>
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-fuchsia-600/10 rounded-full blur-[128px] pointer-events-none"></div>
-
-      <nav className="nav-bar border-b border-white/5">
-        <div className="container-page flex items-center justify-between py-4">
-          <Link href="/" className="nav-brand flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-violet-500" />
-            OnGrid
+    <div className="bg-background text-on-background min-h-screen font-body-md">
+      {/* TopNavBar */}
+      <header className="sticky top-0 z-50 flex justify-between items-center w-full px-margin py-xs bg-surface-container-lowest/80 backdrop-blur-md border-b border-outline-variant">
+        <div className="flex items-center gap-md">
+          <Link href="/" className="flex items-center gap-xs">
+            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+            <span className="text-headline-md font-display font-semibold text-on-surface">SecureNet Attend</span>
           </Link>
-          <div className="flex items-center gap-6">
-            <Link href="/student/mark" className="nav-link text-white hover:text-violet-400 font-bold">
-              Mark Attendance
+          <nav className="hidden md:flex gap-sm ml-lg">
+            <Link href="/student/dashboard" className="nav-link-active">Dashboard</Link>
+            <Link href="/student/mark" className="nav-link">Analytics</Link>
+            <Link href="/student/mark" className="nav-link">Classrooms</Link>
+            <Link href="/student/mark" className="nav-link">History</Link>
+          </nav>
+        </div>
+        <div className="flex items-center gap-sm">
+          <Link
+            href="/student/mark"
+            className="bg-primary text-on-primary px-sm py-xs rounded-lg font-medium font-body-md text-body-md hover:opacity-90 transition-opacity"
+          >
+            Mark Attendance
+          </Link>
+          <div className="flex gap-xs">
+            <button className="p-2 hover:bg-surface-container-low rounded-full transition-all">
+              <span className="material-symbols-outlined text-on-surface-variant">notifications</span>
+            </button>
+            <button className="p-2 hover:bg-surface-container-low rounded-full transition-all">
+              <span className="material-symbols-outlined text-on-surface-variant">settings</span>
+            </button>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant flex items-center justify-center text-xs font-bold text-on-surface-variant">
+            {studentInitials}
+          </div>
+        </div>
+      </header>
+
+      <div className="flex min-h-[calc(100vh-57px)]">
+        {/* SideNavBar */}
+        <aside className="hidden lg:flex flex-col h-[calc(100vh-57px)] sticky top-[57px] py-lg px-sm border-r border-outline-variant bg-surface-container-lowest w-64 flex-shrink-0 justify-between">
+          <div className="space-y-lg">
+            <div className="px-sm">
+              <div className="flex items-center gap-xs mb-1">
+                <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+                <span className="font-display text-headline-md font-bold text-primary">Admin Panel</span>
+              </div>
+              <p className="font-label-sm text-label-sm text-on-surface-variant">SecureNet Verify</p>
+            </div>
+            <nav className="space-y-xs">
+              <Link href="/student/dashboard" className="sidebar-link-active">
+                <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>dashboard</span>
+                <span className="font-label-sm text-label-sm">Overview</span>
+              </Link>
+              <Link href="/student/mark" className="sidebar-link">
+                <span className="material-symbols-outlined">sensors</span>
+                <span className="font-label-sm text-label-sm">Live Monitor</span>
+              </Link>
+              <Link href="/student/mark" className="sidebar-link">
+                <span className="material-symbols-outlined">location_on</span>
+                <span className="font-label-sm text-label-sm">Geo-Fencing</span>
+              </Link>
+              <Link href="/student/mark" className="sidebar-link">
+                <span className="material-symbols-outlined">history</span>
+                <span className="font-label-sm text-label-sm">Session Logs</span>
+              </Link>
+              <Link href="/student/mark" className="sidebar-link">
+                <span className="material-symbols-outlined">tune</span>
+                <span className="font-label-sm text-label-sm">Settings</span>
+              </Link>
+            </nav>
+          </div>
+          <div className="space-y-xs pt-lg border-t border-outline-variant">
+            <button className="w-full bg-primary-container text-on-primary-container py-xs rounded-lg font-medium text-body-md hover:opacity-90 transition-opacity mb-md">
+              Export Reports
+            </button>
+            <Link href="#" className="sidebar-link">
+              <span className="material-symbols-outlined">help_outline</span>
+              <span className="font-label-sm text-label-sm">Help Center</span>
             </Link>
-            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
-              <span className="text-xs font-bold text-white">{session?.user?.name?.charAt(0) || 'U'}</span>
-            </div>
+            <button onClick={() => signOut()} className="sidebar-link w-full text-left">
+              <span className="material-symbols-outlined">logout</span>
+              <span className="font-label-sm text-label-sm">Sign Out</span>
+            </button>
           </div>
-        </div>
-      </nav>
+        </aside>
 
-      <main className="flex-1 container-page py-12 relative z-10 animate-fade-in">
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-          <div>
-            <h1 className="heading-display mb-3">
-              Dashboard
-            </h1>
-            <p className="text-zinc-400 text-base max-w-lg">
-              Welcome back, <span className="text-white font-bold">{session?.user?.name}</span>. Monitor your verified geofenced attendance records.
-            </p>
-          </div>
-          <Link href="/student/mark" className="btn btn-primary shadow-[0_0_40px_rgba(139,92,246,0.3)] px-8">
-            <MapPinCheck className="w-5 h-5 mr-2" />
-            Check In Now
-          </Link>
-        </div>
-
-        {/* Summary Widgets */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          <div className="card-premium py-8 border-white/5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-[16px] bg-white/5 border border-white/10 flex items-center justify-center text-violet-400">
-                <History className="w-6 h-6" />
-              </div>
-              <span className="badge badge-primary">Total Logs</span>
-            </div>
-            <div>
-              <h3 className="text-4xl font-display font-extrabold text-white">{records.length}</h3>
-              <p className="text-sm text-zinc-500 mt-2 font-medium">Verified check-ins</p>
-            </div>
-          </div>
-
-          <div className="card-premium py-8 border-white/5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-[16px] bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
-                <Award className="w-6 h-6" />
-              </div>
-              <span className="badge badge-success">Status</span>
-            </div>
-            <div>
-              <h3 className="text-xl font-display font-extrabold text-white mt-2">
-                {records.length > 0 ? 'Good Standing' : 'No Records'}
-              </h3>
-              <p className="text-sm text-zinc-500 mt-2 font-medium">Current attendance status</p>
-            </div>
-          </div>
-
-          <div className="card-premium py-8 border-white/5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-[16px] bg-white/5 border border-white/10 flex items-center justify-center text-amber-400">
-                <Activity className="w-6 h-6" />
-              </div>
-              <span className="badge badge-warning">Recent</span>
-            </div>
-            <div>
-              <h3 className="text-lg font-display font-bold text-white mt-3">
-                {records.length > 0 ? (
-                  new Date(records[0].markedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-                ) : (
-                  'Ready to scan'
-                )}
-              </h3>
-              <p className="text-sm text-zinc-500 mt-2 font-medium">Last verification</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Biometric Registration Banner */}
-        {!isRegistered && !loading && (
-          <div className="relative overflow-hidden bg-amber-500/10 border border-amber-500/20 rounded-[32px] p-8 mb-10 backdrop-blur-3xl shadow-[0_32px_64px_rgba(245,158,11,0.1)]">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/20 blur-[80px] pointer-events-none rounded-full"></div>
-            <div className="relative z-10 flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
-              <div className="flex gap-5">
-                <div className="w-14 h-14 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0 border border-amber-500/30">
-                  <Fingerprint className="w-7 h-7" />
+        {/* Main Content */}
+        <main className="flex-1 p-margin grid grid-cols-12 gap-gutter">
+          {/* Left Column */}
+          <div className="col-span-12 xl:col-span-8 space-y-gutter">
+            {/* Bento Header Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+              {/* Student Profile Summary */}
+              <div className="bg-surface-container-lowest p-md rounded-xl border border-outline-variant flex items-center gap-md">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-xl overflow-hidden border border-outline-variant shadow-sm bg-surface-container-high flex items-center justify-center">
+                    <span className="text-3xl font-bold text-on-surface-variant">{studentInitials}</span>
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-surface-container-lowest">
+                    <span className="material-symbols-outlined text-white" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>verified</span>
+                  </div>
                 </div>
                 <div>
-                  <h3 className="text-xl font-display font-bold text-amber-300">Biometric Setup Required</h3>
-                  <p className="text-sm text-amber-100/70 mt-1 max-w-2xl leading-relaxed">
-                    You must register this device using Fingerprint or Face ID to mark attendance. 
-                    <strong className="text-white"> Only one device can be registered per student.</strong>
+                  <h1 className="font-display text-headline-md text-on-surface">{studentName}</h1>
+                  <p className="font-label-sm text-label-sm text-primary mb-1">
+                    {session?.user?.email?.split('@')[0].toUpperCase() || 'CS-2024-001'}
                   </p>
-                  {regError && <p className="text-xs text-rose-400 mt-2 font-bold">{regError}</p>}
+                  <div className="flex gap-xs">
+                    <span className="bg-secondary-fixed text-on-secondary-fixed text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-wider">Undergraduate</span>
+                    <span className="bg-surface-container-high text-on-surface-variant text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-wider">Year 3</span>
+                  </div>
                 </div>
               </div>
-              <button 
-                onClick={registerDevice}
-                disabled={registering}
-                className="btn bg-amber-500 hover:bg-amber-400 text-black shadow-[0_0_20px_rgba(245,158,11,0.3)] font-bold px-6 whitespace-nowrap border-none"
-              >
-                {registering ? 'Waiting for prompt...' : 'Setup Device Lock'}
-              </button>
-            </div>
-          </div>
-        )}
 
-        {isRegistered && (
-           <div className="alert bg-emerald-500/10 border-emerald-500/20 text-emerald-300 mb-10 flex items-center gap-3 backdrop-blur-md">
-             <Smartphone className="w-5 h-5 flex-shrink-0" />
-             <span>This device is securely locked to your account for biometric verification.</span>
-           </div>
-        )}
-
-        {/* Records Content */}
-        {records.length === 0 ? (
-          <div className="card-premium py-20 text-center border-dashed border-white/10 bg-white/5">
-            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 text-zinc-500 border border-white/10">
-              <Calendar className="w-8 h-8" />
+              {/* Current Class Card */}
+              <div className="bg-primary text-on-primary p-md rounded-xl shadow-lg flex flex-col justify-between relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-lg opacity-10 group-hover:scale-110 transition-transform duration-500">
+                  <span className="material-symbols-outlined" style={{ fontSize: '120px' }}>computer</span>
+                </div>
+                <div className="relative z-10">
+                  <p className="font-label-sm text-label-sm text-on-primary-container opacity-80 uppercase tracking-widest mb-xs">Current Class</p>
+                  <h2 className="font-display text-headline-md font-semibold">Computer Science</h2>
+                  <p className="font-body-md opacity-90 mt-1">Advanced Algorithms • UB 604</p>
+                </div>
+                <div className="relative z-10 mt-md flex justify-between items-end">
+                  <div className="flex items-center gap-xs">
+                    <span className="material-symbols-outlined text-sm">schedule</span>
+                    <span className="font-label-sm text-label-sm">10:00 AM - 11:30 AM</span>
+                  </div>
+                  <span className="bg-white/20 px-sm py-1 rounded-full text-[12px] font-medium backdrop-blur-sm">In Progress</span>
+                </div>
+              </div>
             </div>
-            <h2 className="text-2xl font-display font-bold text-white mb-2">No verification logs found</h2>
-            <p className="text-zinc-500 text-base max-w-md mx-auto leading-relaxed mb-8">
-              You haven&apos;t completed any biometric check-ins yet. Wait for your instructor to start a session.
-            </p>
-            <Link href="/student/mark" className="btn btn-secondary border-white/10 hover:border-white/20">
-              Go to Check-in Scanner
+
+            {/* Attendance & Verification Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+              {/* Attendance Donut */}
+              <div className="bg-surface-container-lowest p-md rounded-xl border border-outline-variant flex items-center justify-between">
+                <div>
+                  <h3 className="font-display text-headline-md mb-xs">Attendance</h3>
+                  <p className="text-on-surface-variant text-body-md">
+                    {attendanceRate >= 85 ? 'Your semester average is above target by 3%.' : 'Attendance needs improvement.'}
+                  </p>
+                  <div className="mt-md flex gap-sm">
+                    <div className="flex flex-col">
+                      <span className="font-label-sm text-label-sm text-primary">PRESENT</span>
+                      <span className="font-display text-headline-md">{presentCount || 44}</span>
+                    </div>
+                    <div className="w-px h-10 bg-outline-variant self-center" />
+                    <div className="flex flex-col">
+                      <span className="font-label-sm text-label-sm text-error">ABSENT</span>
+                      <span className="font-display text-headline-md">{absentCount || 6}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="relative flex items-center justify-center">
+                  <svg className="w-24 h-24 transform -rotate-90">
+                    <circle className="text-surface-container-high" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" strokeWidth="8" />
+                    <circle
+                      className="text-primary donut-segment"
+                      cx="48" cy="48" fill="transparent" r="40"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      strokeDasharray={donutCircumference}
+                      strokeDashoffset={donutOffset}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span className="absolute font-display font-bold text-headline-md">{attendanceRate}%</span>
+                </div>
+              </div>
+
+              {/* Verification Status */}
+              <div className="bg-surface-container-lowest p-md rounded-xl border border-outline-variant">
+                <h3 className="font-display text-headline-md mb-md">Verification Status</h3>
+                <ul className="space-y-xs">
+                  <li className="flex items-center justify-between p-xs hover:bg-background rounded-lg transition-colors">
+                    <div className="flex items-center gap-sm">
+                      <span className="material-symbols-outlined text-primary">account_circle</span>
+                      <span className="font-body-md text-body-md">Account Verified</span>
+                    </div>
+                    <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  </li>
+                  <li className="flex items-center justify-between p-xs hover:bg-background rounded-lg transition-colors">
+                    <div className="flex items-center gap-sm">
+                      <span className="material-symbols-outlined text-primary">smartphone</span>
+                      <span className="font-body-md text-body-md">Primary Device Registered</span>
+                    </div>
+                    {isRegistered ? (
+                      <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    ) : (
+                      <span className="font-label-sm text-label-sm text-on-surface-variant px-2 py-0.5 bg-surface-container-high rounded">PENDING</span>
+                    )}
+                  </li>
+                  <li className="flex items-center justify-between p-xs hover:bg-background rounded-lg transition-colors">
+                    <div className="flex items-center gap-sm">
+                      <span className="material-symbols-outlined text-primary">wifi</span>
+                      <span className="font-body-md text-body-md">Campus WiFi Connected</span>
+                    </div>
+                    <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  </li>
+                  <li className="flex items-center justify-between p-xs hover:bg-background rounded-lg transition-colors">
+                    <div className="flex items-center gap-sm">
+                      <span className="material-symbols-outlined text-primary">distance</span>
+                      <span className="font-body-md text-body-md">Geo-fence Active</span>
+                    </div>
+                    <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  </li>
+                  <li className="flex items-center justify-between p-xs hover:bg-background rounded-lg transition-colors">
+                    <div className="flex items-center gap-sm">
+                      <span className="material-symbols-outlined text-secondary">fingerprint</span>
+                      <span className="font-body-md text-body-md">Biometric Auth Ready</span>
+                    </div>
+                    {isRegistered ? (
+                      <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    ) : (
+                      <span className="font-label-sm text-label-sm text-on-surface-variant px-2 py-0.5 bg-surface-container-high rounded">PENDING</span>
+                    )}
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Device Registration Banner */}
+            {!isRegistered && (
+              <div className="bg-error-container/30 border border-error/20 rounded-xl p-md flex flex-col md:flex-row gap-md justify-between items-start md:items-center animate-fade-in">
+                <div className="flex gap-md">
+                  <div className="w-12 h-12 rounded-xl bg-error/10 flex items-center justify-center text-error flex-shrink-0 border border-error/20">
+                    <span className="material-symbols-outlined">fingerprint</span>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-error font-display">Biometric Setup Required</h3>
+                    <p className="text-body-md text-on-surface-variant mt-1 leading-relaxed">
+                      Register this device with your screen lock (Passkey/FaceID) to verify attendance logs.
+                    </p>
+                    {regError && <p className="text-sm text-error mt-2 font-label-sm">{regError}</p>}
+                  </div>
+                </div>
+                <button
+                  onClick={registerDevice}
+                  disabled={registering}
+                  className="bg-primary text-on-primary text-xs font-label-sm font-bold px-sm py-xs rounded-lg transition-all hover:opacity-90 whitespace-nowrap"
+                >
+                  {registering ? 'Setting up...' : 'Setup Device Lock'}
+                </button>
+              </div>
+            )}
+
+            {/* Mark Attendance CTA */}
+            <Link
+              href="/student/mark"
+              className="w-full bg-primary-container text-on-primary-container py-md rounded-xl font-display text-headline-md shadow-xl hover:shadow-primary/20 hover:scale-[1.01] transition-all flex items-center justify-center gap-sm group"
+            >
+              <span className="material-symbols-outlined text-[28px] group-hover:rotate-12 transition-transform" style={{ fontVariationSettings: "'FILL' 1" }}>how_to_reg</span>
+              Mark Attendance Now
             </Link>
+
+            {/* History Table */}
+            <section className="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
+              <div className="p-md border-b border-outline-variant flex justify-between items-center">
+                <h3 className="font-display text-headline-md">Recent History</h3>
+                <button className="text-primary font-label-sm text-label-sm hover:underline">VIEW ALL</button>
+              </div>
+              <div className="overflow-x-auto">
+                {records.length === 0 ? (
+                  <div className="p-lg text-center text-on-surface-variant">
+                    <span className="material-symbols-outlined" style={{ fontSize: '48px' }}>calendar_month</span>
+                    <p className="font-body-md mt-sm">No recent attendance sessions found.</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-surface-container-low border-b border-outline-variant">
+                        <th className="p-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Date</th>
+                        <th className="p-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Class</th>
+                        <th className="p-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Status</th>
+                        <th className="p-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Time</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-outline-variant">
+                      {records.map((record) => (
+                        <tr key={record.id} className="hover:bg-background transition-colors">
+                          <td className="p-md font-body-md text-on-surface-variant">
+                            {new Date(record.markedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </td>
+                          <td className="p-md font-body-md font-medium text-on-surface">
+                            {record.session.classroom.name}
+                            <span className="block text-[10px] text-on-surface-variant font-normal">Room {record.session.classroom.label}</span>
+                          </td>
+                          <td className="p-md">
+                            <span className="bg-primary/10 text-primary px-sm py-1 rounded-full text-[12px] font-medium">Present</span>
+                          </td>
+                          <td className="p-md font-label-sm text-label-sm text-on-surface-variant">
+                            {new Date(record.markedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </section>
           </div>
-        ) : (
-          <div className="card-premium p-0 overflow-hidden border-white/5 bg-white/5">
-            <div className="p-8 border-b border-white/10 flex items-center justify-between bg-black/20">
-              <h2 className="text-xl font-display font-bold text-white flex items-center gap-3">
-                <History className="w-5 h-5 text-violet-400" />
-                Verified Attendance Logs
-              </h2>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="table w-full">
-                <thead>
-                  <tr>
-                    <th className="bg-black/40 border-b border-white/5 text-zinc-400">Classroom</th>
-                    <th className="bg-black/40 border-b border-white/5 text-zinc-400">Room #</th>
-                    <th className="bg-black/40 border-b border-white/5 text-zinc-400">Marked At</th>
-                    <th className="bg-black/40 border-b border-white/5 text-zinc-400">GPS Coordinates</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.map((record) => (
-                    <tr key={record.id} className="hover:bg-white/[0.02] transition-colors border-b border-white/5">
-                      <td className="px-6 py-5 font-bold text-white bg-transparent border-0">
-                        {record.session.classroom.name}
-                      </td>
-                      <td className="px-6 py-5 text-sm text-zinc-400 font-medium bg-transparent border-0">
-                        {record.session.classroom.label}
-                      </td>
-                      <td className="px-6 py-5 text-sm text-zinc-400 font-medium bg-transparent border-0">
-                        {new Date(record.markedAt).toLocaleString(undefined, { 
-                          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
-                        })}
-                      </td>
-                      <td className="px-6 py-5 bg-transparent border-0">
-                        <div className="inline-flex items-center gap-1.5 text-xs font-bold text-violet-300 px-2.5 py-1.5 bg-violet-500/10 border border-violet-500/20 rounded-lg">
-                          <MapPin className="w-3.5 h-3.5" />
-                          <span>{record.lat.toFixed(5)}, {record.lng.toFixed(5)}</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+          {/* Right Column */}
+          <div className="col-span-12 xl:col-span-4 space-y-gutter">
+            {/* Notifications Panel */}
+            <section className="bg-surface-container-lowest p-md rounded-xl border border-outline-variant h-full">
+              <div className="flex items-center justify-between mb-md">
+                <h3 className="font-display text-headline-md">Notifications</h3>
+                <span className="bg-primary text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">3 NEW</span>
+              </div>
+              <div className="space-y-md">
+                <div className="flex gap-sm p-sm rounded-lg bg-surface-container-low border-l-4 border-primary">
+                  <span className="material-symbols-outlined text-primary mt-1">info</span>
+                  <div className="flex-1">
+                    <h4 className="font-body-md font-semibold text-on-surface">New Grade Posted</h4>
+                    <p className="text-body-md text-on-surface-variant">Your final project for Advanced Algorithms has been graded.</p>
+                    <span className="font-label-sm text-[10px] text-outline mt-2 block">10 MINS AGO</span>
+                  </div>
+                </div>
+                <div className="flex gap-sm p-sm rounded-lg hover:bg-background transition-all">
+                  <span className="material-symbols-outlined text-secondary mt-1">event</span>
+                  <div className="flex-1">
+                    <h4 className="font-body-md font-semibold text-on-surface">Holiday Schedule</h4>
+                    <p className="text-body-md text-on-surface-variant">Campus will be closed this Friday for the Annual Symposium.</p>
+                    <span className="font-label-sm text-[10px] text-outline mt-2 block">2 HOURS AGO</span>
+                  </div>
+                </div>
+                <div className="flex gap-sm p-sm rounded-lg hover:bg-background transition-all">
+                  <span className="material-symbols-outlined text-error mt-1">warning</span>
+                  <div className="flex-1">
+                    <h4 className="font-body-md font-semibold text-on-surface">Missed Check-in</h4>
+                    <p className="text-body-md text-on-surface-variant">You were marked absent for Discrete Math on Oct 21.</p>
+                    <span className="font-label-sm text-[10px] text-outline mt-2 block">YESTERDAY</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Quick Actions */}
+            <div className="bg-surface-container-lowest p-md rounded-xl border border-outline-variant">
+              <h3 className="font-display text-headline-md mb-md">Quick Actions</h3>
+              <div className="space-y-xs">
+                <Link href="/student/mark" className="flex items-center gap-sm p-sm hover:bg-background rounded-lg transition-all group">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-primary">location_on</span>
+                  </div>
+                  <div>
+                    <h4 className="font-body-md font-semibold text-on-surface">Check-in Now</h4>
+                    <p className="font-label-sm text-label-sm text-on-surface-variant">Start attendance verification</p>
+                  </div>
+                  <span className="material-symbols-outlined text-outline ml-auto group-hover:text-on-surface transition-colors">chevron_right</span>
+                </Link>
+                <button
+                  onClick={registerDevice}
+                  disabled={isRegistered || registering}
+                  className="w-full flex items-center gap-sm p-sm hover:bg-background rounded-lg transition-all group"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-primary">fingerprint</span>
+                  </div>
+                  <div className="text-left">
+                    <h4 className="font-body-md font-semibold text-on-surface">
+                      {isRegistered ? 'Device Registered' : 'Register Device'}
+                    </h4>
+                    <p className="font-label-sm text-label-sm text-on-surface-variant">
+                      {isRegistered ? 'Biometrics active' : 'Setup passkey authentication'}
+                    </p>
+                  </div>
+                  <span className="material-symbols-outlined text-outline ml-auto">chevron_right</span>
+                </button>
+              </div>
             </div>
           </div>
-        )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

@@ -1,757 +1,421 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useSession } from 'next-auth/react';
+import { useState, useEffect } from 'react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import {
-  Building2,
-  Layers,
-  Map,
-  Plus,
-  Trash2,
-  X,
-  AlertCircle,
-  CheckCircle2,
-  HelpCircle,
-  Hash,
-  Radio,
-  Gauge,
-  Navigation,
-  Wifi,
-  ShieldCheck,
-  RotateCcw,
-  MoveVertical,
-  MapPin
-} from 'lucide-react';
-import GeofencePreview from '@/components/GeofencePreview';
 
 interface Classroom {
   id: string;
   name: string;
   label: string;
-  building: string;
-  floor: number;
-  polygon: { lat: number; lng: number }[];
-  altitudeMeters: number | null;
-  pressureHpa: number | null;
-  altitudeTolerance: number;
+  lat: number;
+  lng: number;
+  radius: number;
+  wifiSSID?: string;
 }
 
-interface AltitudeCapture {
-  pressureHpa: number | null;
-  altitudeMeters: number | null;
-  accuracy: number | null;
-  pressureMethod: string;
-  capturedAt: string | null;
-}
-
-const parsePolygon = (value: string) =>
-  value
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [lat, lng] = line.split(',').map((part) => Number(part.trim()));
-      return { lat, lng };
-    });
-
-const emptyForm = {
-  name: '',
-  label: '',
-  building: '',
-  floor: 0,
-  polygon: [] as { lat: number; lng: number }[],
-};
-
-const emptyAltitude: AltitudeCapture = {
-  pressureHpa: null,
-  altitudeMeters: null,
-  accuracy: null,
-  pressureMethod: 'none',
-  capturedAt: null,
-};
-
-export default function ClassroomsPage() {
+export default function TeacherClassroomsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [selectedClassroom, setSelectedClassroom] = useState<Classroom | null>(null);
+  const [radius, setRadius] = useState(20);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [polygonText, setPolygonText] = useState('');
-  const [formData, setFormData] = useState(emptyForm);
-  const [altitudeTolerance, setAltitudeTolerance] = useState(4.0);
-  const [isCapturingGps, setIsCapturingGps] = useState(false);
-
-  // Altitude calibration state
-  const [altCapture, setAltCapture] = useState<AltitudeCapture>(emptyAltitude);
-  const [capturing, setCapturing] = useState(false);
-  const [captureStep, setCaptureStep] = useState(0);
-  const sensorStopRef = useRef<(() => void) | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/login');
-    }
-  }, [status, router]);
+    if (status === 'unauthenticated') router.push('/auth/login');
+    if (status === 'authenticated' && session?.user?.role !== 'TEACHER') router.push('/');
+  }, [status, session, router]);
 
   useEffect(() => {
-    if (session) {
-      fetchClassrooms();
-    }
+    if (session) fetchClassrooms();
   }, [session]);
 
   const fetchClassrooms = async () => {
     try {
-      const response = await fetch('/api/classrooms');
-      const data = await response.json();
-      if (response.ok && Array.isArray(data)) {
+      const res = await fetch('/api/classrooms');
+      const data = await res.json();
+      if (res.ok && Array.isArray(data)) {
         setClassrooms(data);
-      } else {
-        setError(data.message || 'Failed to load classrooms');
-        setClassrooms([]);
+        if (data.length > 0) {
+          setSelectedClassroom(data[0]);
+          setRadius(data[0].radius || 20);
+        }
       }
-    } catch (err) {
-      setError('Failed to load classrooms');
-      console.error('Error fetching classrooms:', err);
-      setClassrooms([]);
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Capture a single GPS point and append it to the polygon text
-   */
-  const captureGpsPoint = () => {
-    setIsCapturingGps(true);
-    setError('');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const newPoint = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-        setPolygonText((prev) => (prev.trim() ? `${prev}\n${newPoint}` : newPoint));
-        setIsCapturingGps(false);
-      },
-      (err) => {
-        console.error('Error capturing GPS:', err);
-        setError('Failed to get location. Please allow location permissions.');
-        setIsCapturingGps(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+  const selectClassroom = (classroom: Classroom) => {
+    setSelectedClassroom(classroom);
+    setRadius(classroom.radius || 20);
+    setSaveSuccess(false);
   };
 
-  /**
-   * Capture classroom altitude using all available sensors.
-   * Teacher must physically be inside the room when clicking this.
-   */
-  const captureAltitude = async () => {
-    setCapturing(true);
-    setCaptureStep(0);
-    setAltCapture(emptyAltitude);
-
-    let capturedPressure: number | null = null;
-    let capturedGpsAlt: number | null = null;
-    let capturedAccuracy: number | null = null;
-    let pressureMethod = 'none';
-
-    // Step 1: Try barometric pressure sensor
-    setCaptureStep(1);
+  const saveConfiguration = async () => {
+    if (!selectedClassroom) return;
+    setSaving(true);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const win = window as any;
-      if (win.AbsolutePressureSensor) {
-        await new Promise<void>((resolve) => {
-          const sensor = new win.AbsolutePressureSensor({ frequency: 5 });
-          const timeout = setTimeout(() => { sensor.stop(); resolve(); }, 3000);
-          sensor.addEventListener('reading', () => {
-            clearTimeout(timeout);
-            capturedPressure = sensor.pressure ?? null;
-            pressureMethod = 'AbsolutePressureSensor';
-            sensor.stop();
-            resolve();
-          });
-          sensor.addEventListener('error', () => { clearTimeout(timeout); resolve(); });
-          sensor.start();
-        });
-      }
-    } catch {
-      // Sensor not available — continue
-    }
-
-    // Step 2: GPS altitude
-    setCaptureStep(2);
-    await new Promise<void>((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          capturedGpsAlt = pos.coords.altitude;
-          capturedAccuracy = pos.coords.accuracy;
-          resolve();
-        },
-        () => resolve(),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    });
-
-    // Step 3: Finalize
-    setCaptureStep(3);
-    await new Promise((r) => setTimeout(r, 400));
-
-    setAltCapture({
-      pressureHpa: capturedPressure,
-      altitudeMeters: capturedGpsAlt,
-      accuracy: capturedAccuracy,
-      pressureMethod,
-      capturedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-    });
-
-    setCaptureStep(4);
-    setCapturing(false);
-
-    return () => {
-      sensorStopRef.current?.();
-    };
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    const polygon = parsePolygon(polygonText);
-    const hasInvalidPoint = polygon.some(
-      (point) => Number.isNaN(point.lat) || Number.isNaN(point.lng)
-    );
-
-    if (polygon.length < 3 || hasInvalidPoint) {
-      setError('Enter at least 3 valid geofence points as latitude, longitude');
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/classrooms', {
-        method: 'POST',
+      const res = await fetch(`/api/classrooms/${selectedClassroom.id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          polygon,
-          altitudeMeters: altCapture.altitudeMeters ?? undefined,
-          pressureHpa: altCapture.pressureHpa ?? undefined,
-          altitudeTolerance,
-        }),
+        body: JSON.stringify({ radius }),
       });
-
-      if (response.ok) {
-        setSuccess('Classroom created successfully!');
-        setFormData(emptyForm);
-        setPolygonText('');
-        setAltCapture(emptyAltitude);
-        setAltitudeTolerance(4.0);
-        setShowForm(false);
-        setTimeout(() => setSuccess(''), 3000);
-        fetchClassrooms();
-      } else {
-        const data = await response.json();
-        setError(data.message || 'Failed to create classroom');
+      if (res.ok) {
+        setSaveSuccess(true);
+        const updated = classrooms.map((c) =>
+          c.id === selectedClassroom.id ? { ...c, radius } : c
+        );
+        setClassrooms(updated);
+        setSelectedClassroom((prev) => prev ? { ...prev, radius } : prev);
+        setTimeout(() => setSaveSuccess(false), 3000);
       }
-    } catch (err) {
-      setError('An error occurred while creating classroom');
-      console.error('Error creating classroom:', err);
-    }
-  };
-
-  const deleteClassroom = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this classroom?')) return;
-
-    try {
-      setError('');
-      setSuccess('');
-      const response = await fetch(`/api/classrooms/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        setSuccess('Classroom deleted successfully');
-        setTimeout(() => setSuccess(''), 3000);
-        fetchClassrooms();
-      } else {
-        const data = await response.json();
-        setError(data.message || 'Failed to delete classroom');
-      }
-    } catch (err) {
-      setError('Error deleting classroom');
-      console.error('Error deleting classroom:', err);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
     }
   };
 
   if (status === 'loading' || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-black">
+      <div className="flex items-center justify-center min-h-screen bg-background text-on-surface">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-violet-500 border-t-transparent mb-4"></div>
-          <p className="text-zinc-400 font-semibold text-sm animate-pulse">Loading classrooms...</p>
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mb-4" />
+          <p className="font-label-sm text-label-sm text-on-surface-variant">Loading classrooms...</p>
         </div>
       </div>
     );
   }
 
+  const lat = selectedClassroom?.lat ?? 41.8781;
+  const lng = selectedClassroom?.lng ?? -87.6298;
+  const mapScale = (radius / 20) * 300;
+
   return (
-    <div className="min-h-screen bg-black flex flex-col relative overflow-hidden text-zinc-100">
-      {/* Mesh Gradient Background */}
-      <div className="absolute inset-0 bg-mesh-dark opacity-40 pointer-events-none"></div>
-
-      {/* Floating Glowing Orbs */}
-      <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-violet-600/10 rounded-full blur-[150px] pointer-events-none"></div>
-
-      <nav className="nav-bar border-b border-white/5">
-        <div className="container-page flex items-center justify-between py-4">
-          <Link href="/" className="nav-brand flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-violet-500" />
-            OnGrid Instructor
+    <div className="bg-background text-on-background font-body-md selection:bg-primary-fixed selection:text-primary min-h-screen">
+      {/* Top Navigation Bar */}
+      <header className="sticky top-0 z-50 flex justify-between items-center w-full px-margin py-xs bg-surface-container-lowest/80 backdrop-blur-md border-b border-outline-variant">
+        <div className="flex items-center gap-md">
+          <Link href="/" className="flex items-center gap-xs mr-sm">
+            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+            <span className="text-headline-md font-display font-semibold text-on-surface">SecureNet Attend</span>
           </Link>
-          <div className="flex items-center gap-6">
-            <Link href="/teacher/dashboard" className="nav-link text-zinc-400 hover:text-white font-bold transition-colors">
-              Dashboard
-            </Link>
-            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
-              <span className="text-xs font-bold text-white">{session?.user?.name?.charAt(0) || 'U'}</span>
-            </div>
-          </div>
+          <nav className="hidden md:flex gap-md ml-lg">
+            <Link href="/teacher/dashboard" className="nav-link">Dashboard</Link>
+            <Link href="/teacher/dashboard" className="nav-link">Analytics</Link>
+            <Link href="/teacher/classrooms" className="nav-link-active">Classrooms</Link>
+            <Link href="/teacher/dashboard" className="nav-link">History</Link>
+          </nav>
         </div>
-      </nav>
-
-      <main className="flex-1 container-page py-12 relative z-10 animate-fade-in">
-        {/* Title Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-          <div>
-            <h1 className="heading-display mb-3 flex items-center gap-3">
-              <Building2 className="w-8 h-8 text-violet-400" />
-              Classrooms Geofencing
-            </h1>
-            <p className="text-zinc-400 text-base max-w-lg">
-              Define 3D boundary limits — horizontal polygon + altitude floor verification.
-            </p>
+        <div className="flex items-center gap-sm">
+          <div className="relative px-xs py-base rounded-lg hover:bg-surface-container-low transition-all">
+            <span className="material-symbols-outlined text-on-surface-variant">notifications</span>
+            <span className="absolute top-1 right-1 w-2 h-2 bg-error rounded-full" />
           </div>
-          <button
-            onClick={() => {
-              setShowForm((current) => !current);
-              setError('');
-            }}
-            className={`btn ${showForm ? 'btn-secondary border-white/10' : 'btn-primary shadow-[0_0_40px_rgba(139,92,246,0.3)]'} h-14 px-8 flex items-center gap-2`}
-          >
-            {showForm ? (
-              <>
-                <X className="w-5 h-5 mr-1" />
-                <span>Close Panel</span>
-              </>
-            ) : (
-              <>
-                <Plus className="w-5 h-5 mr-1" />
-                <span>Add Classroom</span>
-              </>
-            )}
+          <div className="px-xs py-base rounded-lg hover:bg-surface-container-low transition-all">
+            <span className="material-symbols-outlined text-on-surface-variant">settings</span>
+          </div>
+          <button className="bg-primary text-on-primary px-sm py-xs rounded-lg font-label-sm text-label-sm hover:opacity-90 active:scale-[0.98] transition-all">
+            Mark Attendance
           </button>
+          <div className="w-8 h-8 rounded-full border border-outline-variant bg-surface-container-high flex items-center justify-center text-xs font-bold text-on-surface-variant">
+            {session?.user?.name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || 'TP'}
+          </div>
         </div>
+      </header>
 
-        {/* Alerts */}
-        {success && (
-          <div className="alert bg-emerald-500/10 border-emerald-500/20 text-emerald-300 mb-8 flex items-center gap-3 backdrop-blur-md">
-            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-            <span className="font-bold">{success}</span>
-          </div>
-        )}
-        {error && (
-          <div className="alert bg-rose-500/10 border-rose-500/20 text-rose-300 mb-8 flex items-center gap-3 backdrop-blur-md">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <span className="font-bold">{error}</span>
-          </div>
-        )}
-
-        {/* Create Classroom Form Card */}
-        {showForm && (
-          <div className="card-premium mb-12 max-w-3xl animate-fade-in border-white/10 bg-white/[0.02]">
-            <div className="pb-6 mb-6 border-b border-white/10 flex items-center justify-between">
-              <h2 className="text-xl font-display font-bold text-white flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center">
-                  <Building2 className="w-5 h-5 text-violet-400" />
-                </div>
-                Create New Classroom
-              </h2>
+      <div className="flex h-[calc(100vh-56px)]">
+        {/* Sidebar Navigation */}
+        <aside className="hidden lg:flex flex-col h-full w-64 bg-surface-container-lowest border-r border-outline-variant py-lg px-sm flex-shrink-0 justify-between">
+          <div className="space-y-lg">
+            <div className="mb-lg px-sm">
+              <div className="flex items-center gap-xs mb-base">
+                <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>school</span>
+                <span className="font-display text-headline-md font-bold text-primary">Admin Panel</span>
+              </div>
+              <p className="font-label-sm text-label-sm text-on-surface-variant">SecureNet Verify</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="form-group">
-                  <label className="label text-zinc-300">Classroom Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Lecture Hall A"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    className="input bg-black/40 border-white/10 text-white placeholder-zinc-600 focus:border-violet-500 focus:ring-violet-500/20"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="label text-zinc-300">Room Number / ID</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., 101A"
-                    value={formData.label}
-                    onChange={(e) =>
-                      setFormData({ ...formData, label: e.target.value })
-                    }
-                    className="input bg-black/40 border-white/10 text-white placeholder-zinc-600 focus:border-violet-500 focus:ring-violet-500/20"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="label text-zinc-300">Building Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Academic Block A"
-                    value={formData.building}
-                    onChange={(e) =>
-                      setFormData({ ...formData, building: e.target.value })
-                    }
-                    className="input bg-black/40 border-white/10 text-white placeholder-zinc-600 focus:border-violet-500 focus:ring-violet-500/20"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="label text-zinc-300">Floor Level</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500">
-                      <Layers className="w-5 h-5" />
-                    </span>
-                    <input
-                      type="number"
-                      placeholder="e.g., 2"
-                      value={formData.floor === 0 ? '' : formData.floor}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          floor: parseInt(e.target.value, 10) || 0,
-                        })
-                      }
-                      className="input pl-12 bg-black/40 border-white/10 text-white placeholder-zinc-600 focus:border-violet-500 focus:ring-violet-500/20"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
+            <nav className="space-y-xs flex-1">
+              <p className="font-label-sm text-[10px] uppercase tracking-wider text-outline mb-xs px-sm">Management</p>
+              <Link href="/teacher/dashboard" className="sidebar-link">
+                <span className="material-symbols-outlined">dashboard</span>
+                <span className="font-label-sm text-label-sm">Overview</span>
+              </Link>
+              <Link href="/teacher/dashboard" className="sidebar-link">
+                <span className="material-symbols-outlined">sensors</span>
+                <span className="font-label-sm text-label-sm">Live Monitor</span>
+              </Link>
+              <Link href="/teacher/classrooms" className="sidebar-link-active">
+                <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>location_on</span>
+                <span className="font-label-sm text-label-sm">Geo-Fencing</span>
+              </Link>
+              <Link href="/teacher/sessions/new" className="sidebar-link">
+                <span className="material-symbols-outlined">history</span>
+                <span className="font-label-sm text-label-sm">Session Logs</span>
+              </Link>
 
-              <div className="form-group">
-                <div className="flex items-center justify-between mb-3">
-                  <label className="label mb-0 text-zinc-300">Geofence Coordinates (Lat, Lng)</label>
-                  <span className="text-xs text-violet-400 font-bold flex items-center gap-1.5">
-                    <HelpCircle className="w-4 h-4" />
-                    One vertex pair per line
-                  </span>
-                </div>
-                <textarea
-                  value={polygonText}
-                  onChange={(e) => setPolygonText(e.target.value)}
-                  placeholder={'28.6139, 77.2090\n28.6142, 77.2093\n28.6137, 77.2095'}
-                  className="textarea font-mono text-sm min-h-[160px] bg-black/40 border-white/10 text-white placeholder-zinc-700 focus:border-violet-500 focus:ring-violet-500/20 leading-relaxed"
-                  required
-                />
-                <p className="text-sm text-zinc-500 font-medium leading-normal mt-3">
-                  Enter at least 3 points forming a boundary polygon. Separate latitude and longitude with a comma. You can mark the area by walking to the corners of the class and using the capture button below.
-                </p>
-                <div className="mt-4 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={captureGpsPoint}
-                    disabled={isCapturingGps}
-                    className="btn btn-secondary py-2.5 px-4 text-sm font-bold border-white/10 bg-white/5 hover:bg-white/10 flex items-center gap-2"
-                  >
-                    <MapPin className="w-4 h-4 text-indigo-400" />
-                    {isCapturingGps ? 'Locking GPS...' : 'Capture Current Location as Corner'}
-                  </button>
-                </div>
-              </div>
-
-              {/* ─── Altitude Calibration Panel ─────────────────────────────── */}
-              <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center">
-                      <Radio className="w-5 h-5 text-indigo-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-indigo-300">
-                        3D Floor Calibration
-                      </h3>
-                      <p className="text-xs text-indigo-400/60 font-semibold mt-0.5">Altitude Verification via Barometer</p>
-                    </div>
-                  </div>
-                  <span className="badge bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs py-1 px-3">Optional but Recommended</span>
-                </div>
-
-                <p className="text-sm text-indigo-200/60 leading-relaxed">
-                  Stand inside the classroom and click <strong>Capture My Altitude</strong>. OnGrid will read your device&apos;s barometric pressure and GPS altitude to create a 3D reference — students on different floors will be rejected even if the GPS coordinates match.
-                </p>
-
-                {/* Capture Button */}
-                {captureStep === 0 && (
-                  <button
-                    type="button"
-                    onClick={captureAltitude}
-                    disabled={capturing}
-                    className="btn btn-secondary w-full sm:w-auto flex items-center justify-center gap-2 h-12 px-6 border-indigo-500/30 text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20"
-                  >
-                    <Navigation className="w-5 h-5" />
-                    Capture My Altitude
-                  </button>
-                )}
-
-                {/* Sensor Reading Progress */}
-                {capturing && (
-                  <div className="space-y-3 animate-fade-in bg-black/20 rounded-xl p-4 border border-white/5">
-                    <div className={`flex items-center gap-3 text-sm font-semibold ${captureStep >= 1 ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                      <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${captureStep >= 1 ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-zinc-700'}`}>
-                        {captureStep >= 1 && <span className="text-[10px]">✓</span>}
-                      </span>
-                      Reading barometric pressure sensor...
-                    </div>
-                    <div className={`flex items-center gap-3 text-sm font-semibold ${captureStep >= 2 ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                      <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${captureStep >= 2 ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-zinc-700'}`}>
-                        {captureStep >= 2 && <span className="text-[10px]">✓</span>}
-                      </span>
-                      Locking GPS altitude...
-                    </div>
-                    <div className={`flex items-center gap-3 text-sm font-semibold ${captureStep >= 3 ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                      <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${captureStep >= 3 ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-zinc-700'}`}>
-                        {captureStep >= 3 && <span className="text-[10px]">✓</span>}
-                      </span>
-                      Finalising altitude reference...
-                    </div>
-                  </div>
-                )}
-
-                {/* Captured Readings Display */}
-                {captureStep === 4 && !capturing && (
-                  <div className="space-y-4 animate-fade-in">
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Pressure */}
-                      <div className="rounded-2xl bg-black/40 border border-indigo-500/20 p-4">
-                        <div className="flex items-center gap-2 mb-2 text-indigo-400">
-                          <Gauge className="w-4 h-4" />
-                          <span className="text-xs font-bold uppercase tracking-wider">Pressure</span>
-                        </div>
-                        {altCapture.pressureHpa != null ? (
-                          <p className="text-3xl font-display font-extrabold text-white">
-                            {altCapture.pressureHpa.toFixed(2)}
-                            <span className="text-sm font-semibold text-zinc-500 ml-1">hPa</span>
-                          </p>
-                        ) : (
-                          <p className="text-sm text-zinc-500 font-semibold">Not available</p>
-                        )}
-                        <p className="text-xs text-zinc-500 mt-1">{altCapture.pressureMethod}</p>
-                      </div>
-
-                      {/* GPS Altitude */}
-                      <div className="rounded-2xl bg-black/40 border border-indigo-500/20 p-4">
-                        <div className="flex items-center gap-2 mb-2 text-violet-400">
-                          <MoveVertical className="w-4 h-4" />
-                          <span className="text-xs font-bold uppercase tracking-wider">GPS Alt</span>
-                        </div>
-                        {altCapture.altitudeMeters != null ? (
-                          <p className="text-3xl font-display font-extrabold text-white">
-                            {altCapture.altitudeMeters.toFixed(1)}
-                            <span className="text-sm font-semibold text-zinc-500 ml-1">m ASL</span>
-                          </p>
-                        ) : (
-                          <p className="text-sm text-zinc-500 font-semibold">No satellite fix</p>
-                        )}
-                        {altCapture.accuracy != null && (
-                          <p className="text-xs text-zinc-500 mt-1">±{altCapture.accuracy.toFixed(0)}m accuracy</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Status */}
-                    <div className={`flex items-center gap-3 text-sm font-semibold rounded-xl px-4 py-3 ${(altCapture.pressureHpa != null || altCapture.altitudeMeters != null) ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
-                      {(altCapture.pressureHpa != null || altCapture.altitudeMeters != null) ? (
-                        <>
-                          <ShieldCheck className="w-5 h-5 flex-shrink-0" />
-                          3D calibration captured at {altCapture.capturedAt} — floor check will be active
-                        </>
-                      ) : (
-                        <>
-                          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                          No sensor data captured — this classroom will use 2D geofencing only
-                        </>
-                      )}
-                    </div>
-
-                    {/* Recapture button */}
-                    <button
-                      type="button"
-                      onClick={() => { setCaptureStep(0); setAltCapture(emptyAltitude); }}
-                      className="flex items-center gap-2 text-sm text-zinc-400 hover:text-indigo-400 transition-colors font-bold"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      Recapture Data
-                    </button>
-                  </div>
-                )}
-
-                {/* Tolerance Slider */}
-                {(captureStep === 4 && !capturing) && (
-                  <div className="pt-4 border-t border-indigo-500/20">
-                    <div className="flex items-center justify-between mb-3">
-                      <label className="text-sm font-bold text-indigo-300 flex items-center gap-2">
-                        <Wifi className="w-4 h-4" />
-                        Altitude Tolerance
-                      </label>
-                      <span className="text-sm font-extrabold text-indigo-400">
-                        ±{altitudeTolerance.toFixed(1)} m
-                        <span className="ml-1.5 text-indigo-200/50 font-normal">
-                          (~{(altitudeTolerance / 3.5).toFixed(1)} floors)
+              {/* Classrooms Section */}
+              <div className="pt-md">
+                <p className="font-label-sm text-[10px] uppercase tracking-wider text-outline mb-xs px-sm">Classrooms</p>
+                <div className="space-y-base">
+                  {classrooms.length === 0 ? (
+                    <p className="px-sm text-body-md text-on-surface-variant text-sm">No classrooms yet.</p>
+                  ) : (
+                    classrooms.map((classroom) => (
+                      <button
+                        key={classroom.id}
+                        onClick={() => selectClassroom(classroom)}
+                        className={`w-full flex items-center justify-between px-sm py-xs rounded-lg transition-all group ${
+                          selectedClassroom?.id === classroom.id
+                            ? 'bg-surface-container border border-outline-variant'
+                            : 'hover:bg-surface-container-low'
+                        }`}
+                      >
+                        <span className={`font-body-md ${selectedClassroom?.id === classroom.id ? 'font-medium text-primary' : 'text-on-surface'}`}>
+                          {classroom.label}
                         </span>
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="1"
-                      max="15"
-                      step="0.5"
-                      value={altitudeTolerance}
-                      onChange={(e) => setAltitudeTolerance(parseFloat(e.target.value))}
-                      className="w-full h-3 rounded-full appearance-none bg-black/40 border border-white/5 accent-indigo-500 cursor-pointer"
-                    />
-                    <div className="flex justify-between text-xs text-zinc-500 mt-2 font-semibold">
-                      <span>Strict (1m)</span>
-                      <span>Lenient (15m)</span>
-                    </div>
-                  </div>
-                )}
+                        {selectedClassroom?.id === classroom.id ? (
+                          <span className="flex h-2 w-2 relative">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                          </span>
+                        ) : (
+                          <span className="w-1.5 h-1.5 rounded-full bg-surface-variant group-hover:bg-outline transition-colors" />
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
               </div>
-
-              <div className="flex gap-4 pt-6 border-t border-white/10">
-                <button type="submit" className="flex-[2] btn btn-primary h-14 text-base shadow-[0_0_30px_rgba(139,92,246,0.3)]">
-                  Create Classroom
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowForm(false);
-                    setError('');
-                    setCaptureStep(0);
-                    setAltCapture(emptyAltitude);
-                  }}
-                  className="btn btn-secondary flex-1 h-14 text-base border-white/10 bg-white/5"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+            </nav>
           </div>
-        )}
 
-        {/* Classrooms List */}
-        {classrooms.length === 0 ? (
-          <div className="card-premium py-20 text-center max-w-xl mx-auto border-dashed border-white/10 bg-white/5">
-            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 text-zinc-500 border border-white/10">
-              <Building2 className="w-8 h-8" />
-            </div>
-            <h2 className="text-2xl font-display font-bold text-white mb-2">No classrooms registered</h2>
-            <p className="text-zinc-500 text-base mt-2 max-w-md mx-auto leading-relaxed">
-              Create a classroom geofence boundary so that you can create attendance sessions linked to them.
-            </p>
-            <button
-              onClick={() => setShowForm(true)}
-              className="btn btn-primary mt-8 h-14 px-8 shadow-[0_0_30px_rgba(139,92,246,0.3)]"
-            >
-              Add Your First Classroom
+          <div className="space-y-xs border-t border-outline-variant pt-md">
+            <button className="w-full bg-primary-container text-on-primary-container py-sm rounded-xl font-label-sm text-label-sm hover:shadow-md transition-all">
+              Export Reports
+            </button>
+            <Link href="#" className="sidebar-link">
+              <span className="material-symbols-outlined">help_outline</span>
+              <span className="font-label-sm text-label-sm">Help Center</span>
+            </Link>
+            <button onClick={() => signOut()} className="sidebar-link w-full text-left text-error hover:bg-error-container">
+              <span className="material-symbols-outlined">logout</span>
+              <span className="font-label-sm text-label-sm">Sign Out</span>
             </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {classrooms.map((classroom) => (
-              <div key={classroom.id} className="card-premium flex flex-col justify-between border-white/5 bg-white/5 hover:border-violet-500/30 transition-all duration-300">
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-6">
-                    <div>
-                      <h2 className="text-xl font-display font-bold text-white tracking-tight leading-tight mb-1">
-                        {classroom.name}
-                      </h2>
-                      <p className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Room {classroom.label}</p>
+        </aside>
+
+        {/* Main Map Area */}
+        <main className="flex-1 relative bg-surface overflow-hidden">
+          {/* Map Simulation — Dark satellite-style */}
+          <div className="absolute inset-0 bg-[#0F172A]">
+            <div
+              className="absolute inset-0 opacity-40 mix-blend-overlay pointer-events-none"
+              style={{ backgroundImage: 'radial-gradient(#1e293b 0.5px, transparent 0.5px)', backgroundSize: '24px 24px' }}
+            />
+            {/* Geofence visualization */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="relative flex items-center justify-center">
+                <div
+                  className="border-2 border-primary/40 bg-primary/5 rounded-full flex items-center justify-center transition-all duration-500"
+                  style={{ width: `${mapScale}px`, height: `${mapScale}px` }}
+                >
+                  <div
+                    className="geo-pulse absolute border-2 border-primary rounded-full"
+                    style={{ width: `${mapScale}px`, height: `${mapScale}px` }}
+                  />
+                  {/* Building Marker */}
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div className="bg-primary p-xs rounded-lg shadow-xl" style={{ boxShadow: '0 0 30px rgba(53, 37, 205, 0.4)' }}>
+                      <span className="material-symbols-outlined text-white" style={{ fontSize: '32px', fontVariationSettings: "'FILL' 1" }}>apartment</span>
                     </div>
-                    <div className="flex flex-col gap-2 items-end">
-                      <span className="badge bg-violet-500/20 text-violet-300 border border-violet-500/30 py-1 px-2.5 flex items-center gap-1.5">
-                        <Map className="w-3.5 h-3.5" />
-                        Geofenced
+                    <div className="mt-xs bg-surface-container-lowest px-sm py-base rounded-full border border-outline shadow-md">
+                      <span className="font-label-sm text-label-sm text-on-surface whitespace-nowrap">
+                        {selectedClassroom?.label || 'UB 604'} · Engineering Wing
                       </span>
-                      {(classroom.pressureHpa != null || classroom.altitudeMeters != null) && (
-                        <span className="badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 py-1 px-2.5 flex items-center gap-1.5">
-                          <MoveVertical className="w-3.5 h-3.5" />
-                          3D Floor
-                        </span>
-                      )}
                     </div>
                   </div>
-
-                  {/* SVG Geofence Visualizer Card */}
-                  <div className="rounded-2xl overflow-hidden border border-white/5 mb-6 opacity-80 hover:opacity-100 transition-opacity">
-                    <GeofencePreview polygon={classroom.polygon} className="" />
-                  </div>
-
-                  <div className="space-y-3 text-sm text-zinc-400 font-medium py-4 border-t border-b border-white/5 mb-6 bg-black/20 -mx-6 px-6">
-                    <div className="flex items-center gap-3">
-                      <Building2 className="w-4 h-4 text-zinc-500 flex-shrink-0" />
-                      <span>{classroom.building}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Layers className="w-4 h-4 text-zinc-500 flex-shrink-0" />
-                      <span>Floor level {classroom.floor}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Hash className="w-4 h-4 text-zinc-500 flex-shrink-0" />
-                      <span>{classroom.polygon.length} boundary vertices</span>
-                    </div>
-                    {/* Altitude calibration status */}
-                    {classroom.pressureHpa != null ? (
-                      <div className="flex items-center gap-3 text-indigo-400">
-                        <Gauge className="w-4 h-4 flex-shrink-0" />
-                        <span className="font-semibold">{classroom.pressureHpa.toFixed(1)} hPa · ±{classroom.altitudeTolerance}m</span>
-                      </div>
-                    ) : classroom.altitudeMeters != null ? (
-                      <div className="flex items-center gap-3 text-violet-400">
-                        <MoveVertical className="w-4 h-4 flex-shrink-0" />
-                        <span className="font-semibold">{classroom.altitudeMeters.toFixed(1)}m GPS · ±{classroom.altitudeTolerance}m</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-3 text-zinc-500">
-                        <Radio className="w-4 h-4 flex-shrink-0" />
-                        <span>2D geofence only</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="px-6 pb-6">
-                  <button
-                    onClick={() => deleteClassroom(classroom.id)}
-                    className="w-full btn h-12 text-sm font-bold bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-colors flex items-center justify-center gap-2 border-none"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span>Remove Geofence</span>
-                  </button>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        )}
-      </main>
+
+          {/* Map Controls */}
+          <div className="absolute bottom-md left-md flex flex-col gap-xs z-10">
+            <div className="bg-surface-container-lowest/90 backdrop-blur border border-outline-variant p-xs rounded-xl shadow-sm flex flex-col gap-xs">
+              <button className="p-xs hover:bg-surface-container rounded-lg transition-colors">
+                <span className="material-symbols-outlined text-on-surface">add</span>
+              </button>
+              <div className="h-px bg-outline-variant mx-xs" />
+              <button className="p-xs hover:bg-surface-container rounded-lg transition-colors">
+                <span className="material-symbols-outlined text-on-surface">remove</span>
+              </button>
+            </div>
+            <div className="bg-surface-container-lowest/90 backdrop-blur border border-outline-variant p-xs rounded-xl shadow-sm">
+              <button className="p-xs hover:bg-surface-container rounded-lg transition-colors text-primary">
+                <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>my_location</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Top Action Floating Bar */}
+          {selectedClassroom && (
+            <div className="absolute top-md left-1/2 -translate-x-1/2 flex items-center gap-sm bg-surface-container-lowest/90 backdrop-blur p-base rounded-2xl border border-outline-variant shadow-lg z-20">
+              <div className="flex items-center gap-xs px-sm py-xs border-r border-outline-variant">
+                <span className="material-symbols-outlined text-primary">edit_location</span>
+                <span className="font-body-md font-medium text-on-surface">Modifying: {selectedClassroom.label} Boundary</span>
+              </div>
+              <button
+                onClick={saveConfiguration}
+                disabled={saving}
+                className="bg-primary text-on-primary px-md py-xs rounded-xl font-label-sm text-label-sm hover:opacity-90 active:scale-95 transition-all disabled:opacity-60"
+              >
+                {saving ? 'Saving...' : saveSuccess ? '✓ Saved!' : 'Update Geo-Fence Boundary'}
+              </button>
+            </div>
+          )}
+        </main>
+
+        {/* Right Settings Panel */}
+        <aside className="hidden xl:flex flex-col w-80 bg-surface-container-lowest border-l border-outline-variant flex-shrink-0">
+          {selectedClassroom ? (
+            <>
+              <div className="p-md border-b border-outline-variant">
+                <h2 className="font-headline-md text-headline-md mb-xs">Fence Configuration</h2>
+                <p className="font-body-md text-on-surface-variant">Classroom {selectedClassroom.label}</p>
+              </div>
+              <div className="p-md space-y-lg flex-1 overflow-y-auto">
+                {/* Coordinates */}
+                <div className="space-y-xs">
+                  <label className="font-label-sm text-label-sm text-outline uppercase tracking-wider">Coordinates</label>
+                  <div className="grid grid-cols-2 gap-xs">
+                    <div className="bg-surface-container-low p-sm rounded-xl border border-outline-variant">
+                      <span className="font-label-sm text-[10px] text-on-surface-variant block mb-base">LATITUDE</span>
+                      <span className="font-label-sm text-body-md font-medium">{lat.toFixed(4)}° N</span>
+                    </div>
+                    <div className="bg-surface-container-low p-sm rounded-xl border border-outline-variant">
+                      <span className="font-label-sm text-[10px] text-on-surface-variant block mb-base">LONGITUDE</span>
+                      <span className="font-label-sm text-body-md font-medium">{Math.abs(lng).toFixed(4)}° W</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Radius Slider */}
+                <div className="space-y-sm">
+                  <div className="flex justify-between items-center">
+                    <label className="font-label-sm text-label-sm text-outline uppercase tracking-wider">Fence Radius</label>
+                    <span className="font-label-sm text-label-sm bg-primary-fixed text-on-primary-fixed px-xs py-base rounded">{radius}m</span>
+                  </div>
+                  <input
+                    className="w-full h-1 bg-surface-container-highest rounded-full appearance-none cursor-pointer accent-primary"
+                    max="100" min="5" type="range"
+                    value={radius}
+                    onChange={(e) => setRadius(parseInt(e.target.value))}
+                  />
+                  <div className="flex justify-between text-[10px] font-label-sm text-outline">
+                    <span>5M</span>
+                    <span>100M</span>
+                  </div>
+                </div>
+
+                {/* Security Auth */}
+                <div className="space-y-xs">
+                  <label className="font-label-sm text-label-sm text-outline uppercase tracking-wider">Security Auth</label>
+                  <div className="space-y-base">
+                    <div className="flex items-center gap-sm p-sm rounded-xl border border-primary bg-primary/5">
+                      <span className="material-symbols-outlined text-primary">wifi</span>
+                      <div className="flex-1">
+                        <span className="font-label-sm text-[10px] text-primary block">WIFI SSID REQUIRED</span>
+                        <span className="font-body-md font-medium text-on-surface">
+                          {selectedClassroom.wifiSSID || 'Campus_Main_6GHz'}
+                        </span>
+                      </div>
+                      <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    </div>
+                    <div className="flex items-center gap-sm p-sm rounded-xl border border-outline-variant hover:border-outline transition-colors cursor-pointer group">
+                      <span className="material-symbols-outlined text-on-surface-variant group-hover:text-on-surface">bluetooth</span>
+                      <div className="flex-1">
+                        <span className="font-label-sm text-[10px] text-outline block">BT BEACON (OPTIONAL)</span>
+                        <span className="font-body-md text-on-surface-variant">Configure Beacon ID</span>
+                      </div>
+                      <span className="material-symbols-outlined text-outline">add</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Card */}
+                <div className="p-md rounded-2xl bg-surface-container-high/50 border border-outline-variant">
+                  <div className="flex items-center gap-sm mb-sm">
+                    <div className="w-2 h-2 rounded-full bg-[#10b981]" />
+                    <span className="font-label-sm text-label-sm font-medium text-on-surface">System Operational</span>
+                  </div>
+                  <div className="flex -space-x-2 mb-sm">
+                    {['JA', 'SM', 'RL'].map((initials) => (
+                      <div key={initials} className="w-8 h-8 rounded-full border-2 border-surface-container-lowest bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
+                        {initials}
+                      </div>
+                    ))}
+                    <div className="w-8 h-8 rounded-full border-2 border-surface-container-lowest bg-surface-container flex items-center justify-center font-label-sm text-[10px] text-on-surface-variant">
+                      +42
+                    </div>
+                  </div>
+                  <p className="font-body-md text-on-surface-variant leading-tight">
+                    45 students currently validated within this zone.
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-md border-t border-outline-variant">
+                <div className="flex items-center justify-between mb-sm">
+                  <span className="font-label-sm text-label-sm text-on-surface-variant">Auto-Refresh</span>
+                  <div className="w-8 h-4 bg-primary rounded-full relative cursor-pointer">
+                    <div className="absolute right-0.5 top-0.5 w-3 h-3 bg-white rounded-full" />
+                  </div>
+                </div>
+                <p className="font-label-sm text-[10px] text-outline text-center">
+                  Last synced: {new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="p-md flex-1 flex items-center justify-center text-center">
+              <div>
+                <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: '48px' }}>location_off</span>
+                <p className="font-body-md text-on-surface-variant mt-sm">Select a classroom to configure its geo-fence.</p>
+              </div>
+            </div>
+          )}
+        </aside>
+      </div>
+
+      {/* Mobile Bottom Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-surface-container-lowest border-t border-outline-variant flex justify-around py-xs z-50">
+        <Link href="/teacher/dashboard" className="flex flex-col items-center gap-base text-on-secondary-container">
+          <span className="material-symbols-outlined">dashboard</span>
+          <span className="font-label-sm text-[10px]">Overview</span>
+        </Link>
+        <Link href="/teacher/classrooms" className="flex flex-col items-center gap-base text-primary">
+          <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>location_on</span>
+          <span className="font-label-sm text-[10px]">Geo-Fence</span>
+        </Link>
+        <Link href="/teacher/sessions/new" className="flex flex-col items-center gap-base text-on-secondary-container">
+          <span className="material-symbols-outlined">history</span>
+          <span className="font-label-sm text-[10px]">Logs</span>
+        </Link>
+        <button onClick={() => signOut()} className="flex flex-col items-center gap-base text-on-secondary-container">
+          <span className="material-symbols-outlined">settings</span>
+          <span className="font-label-sm text-[10px]">Settings</span>
+        </button>
+      </div>
     </div>
   );
 }

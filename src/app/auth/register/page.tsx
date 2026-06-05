@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { User, Mail, Lock, ShieldAlert, ArrowRight, UserCheck, ShieldCheck } from 'lucide-react';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -64,179 +63,118 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4 relative overflow-hidden text-zinc-100">
-      {/* Mesh Gradient Background */}
-      <div className="absolute inset-0 bg-mesh-dark opacity-80 pointer-events-none"></div>
+    <div className="min-h-screen flex items-center justify-center p-md bg-background text-on-surface font-sans">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[20%] left-[50%] -translate-x-1/2 w-[60%] h-[60%] bg-primary/5 rounded-full blur-[120px]" />
+      </div>
 
-      {/* Floating Glowing Orbs */}
-      <div className="absolute top-1/3 left-1/4 w-96 h-96 bg-fuchsia-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none" style={{ animationDelay: '1.5s' }}></div>
-
-      {/* Grid Pattern */}
-      <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{
-        backgroundImage: 'radial-gradient(rgba(255,255,255,0.8) 1px, transparent 0)',
-        backgroundSize: '32px 32px'
-      }}></div>
-
-      <div className="w-full max-w-md relative z-10 animate-fade-in-up py-8">
-        {/* Brand Header */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-[20px] bg-gradient-to-tr from-violet-600 to-fuchsia-600 flex items-center justify-center shadow-[0_8px_32px_rgba(139,92,246,0.5)] mb-6 animate-float relative">
-            <div className="absolute inset-0 rounded-[20px] bg-white/20 blur-md pointer-events-none"></div>
-            <ShieldCheck strokeWidth="2" className="w-8 h-8 text-white relative z-10" />
+      <div className="w-[420px] bg-surface border border-outline-variant rounded-3xl p-xl shadow-lg relative z-10">
+        
+        {/* Header */}
+        <div className="flex flex-col items-center text-center mb-xl">
+          <div className="w-[60px] h-[60px] rounded-2xl bg-surface border border-outline-variant flex items-center justify-center shadow-sm mb-lg">
+            <span className="material-symbols-outlined text-[32px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>person_add</span>
           </div>
-          <h1 className="heading-display mb-2 text-center text-4xl">
-            Join OnGrid
-          </h1>
-          <p className="text-zinc-400 text-sm font-medium tracking-wide text-center">
-            Create an account to verify real-time classroom attendance
-          </p>
+          <h1 className="font-display text-headline-sm font-semibold mb-xs">Create Account</h1>
+          <p className="text-body-md text-on-surface-variant">Register for SecureNet Attend</p>
         </div>
 
-        {/* Card Wrapper */}
-        <div className="card-premium">
-          <h2 className="text-2xl font-display font-bold text-white mb-8 tracking-tight text-center">
-            Create Account
-          </h2>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="form-group">
-              <label className="label">Full Name</label>
-              <div className="relative group">
-                <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500 group-focus-within:text-violet-400 transition-colors">
-                  <User className="w-5 h-5" />
-                </span>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  className="input pl-12"
-                  placeholder="John Doe"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="label">Email Address</label>
-              <div className="relative group">
-                <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500 group-focus-within:text-violet-400 transition-colors">
-                  <Mail className="w-5 h-5" />
-                </span>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  className="input pl-12"
-                  placeholder="yourname@college.edu"
-                  autoComplete="email"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="label">Account Type</label>
-              <div className="relative group">
-                <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500 group-focus-within:text-violet-400 transition-colors z-10">
-                  <UserCheck className="w-5 h-5" />
-                </span>
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleChange}
-                  className="select pl-12 text-zinc-900 dark:text-zinc-100"
-                >
-                  <option value="STUDENT" className="text-zinc-900">Student</option>
-                  <option value="TEACHER" className="text-zinc-900">Instructor / Teacher</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="form-group">
-                <label className="label">Password</label>
-                <div className="relative group">
-                  <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500 group-focus-within:text-violet-400 transition-colors">
-                    <Lock className="w-4 h-4" />
-                  </span>
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    required
-                    className="input pl-11"
-                    placeholder="••••••••"
-                    autoComplete="new-password"
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="label">Confirm</label>
-                <div className="relative group">
-                  <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500 group-focus-within:text-violet-400 transition-colors">
-                    <Lock className="w-4 h-4" />
-                  </span>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    required
-                    className="input pl-11"
-                    placeholder="••••••••"
-                    autoComplete="new-password"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {error && (
-              <div className="alert alert-error animate-fade-in flex items-center gap-3">
-                <ShieldAlert className="w-5 h-5 flex-shrink-0" />
-                <span className="flex-1 text-sm">{error}</span>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn btn-primary w-full mt-4 h-14 text-base"
-            >
-              {loading ? (
-                <>
-                  <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-white/30 border-t-white mr-3"></span>
-                  Creating Account...
-                </>
-              ) : (
-                <>
-                  Create Account
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Sign In link */}
-          <div className="mt-8 pt-6 border-t border-white/10 text-center">
-            <p className="text-zinc-400 text-sm font-medium">
-              Already have an account?{' '}
-              <Link href="/auth/login" className="text-violet-400 font-bold hover:text-violet-300 transition-colors">
-                Sign in
-              </Link>
-            </p>
+        {/* Form */}
+        <form className="flex flex-col gap-lg" onSubmit={handleSubmit}>
+          
+          <div className="flex flex-col gap-xs">
+            <label className="text-label-sm font-mono text-on-surface-variant uppercase tracking-wider">Full Name</label>
+            <input 
+              type="text" 
+              name="name"
+              placeholder="John Doe" 
+              value={formData.name}
+              onChange={handleChange}
+              required
+              className="input bg-surface-container/50 border-outline-variant h-12" 
+            />
           </div>
+
+          <div className="flex flex-col gap-xs">
+            <label className="text-label-sm font-mono text-on-surface-variant uppercase tracking-wider">College Email</label>
+            <input 
+              type="email" 
+              name="email"
+              placeholder="name@college.edu" 
+              value={formData.email}
+              onChange={handleChange}
+              required
+              className="input bg-surface-container/50 border-outline-variant h-12" 
+            />
+          </div>
+
+          <div className="flex flex-col gap-xs">
+            <label className="text-label-sm font-mono text-on-surface-variant uppercase tracking-wider">Account Type</label>
+            <div className="flex gap-sm">
+              <label className={`flex-1 flex items-center justify-center gap-xs h-10 rounded-lg border cursor-pointer transition-colors ${formData.role === 'TEACHER' ? 'bg-secondary-container text-on-secondary-container border-secondary-fixed font-medium' : 'bg-surface-container/50 text-on-surface-variant border-outline-variant'}`}>
+                <input type="radio" name="role" value="TEACHER" checked={formData.role === 'TEACHER'} onChange={handleChange} className="hidden" />
+                <span className="material-symbols-outlined text-[18px]">school</span>
+                <span className="text-sm">Teacher</span>
+              </label>
+              <label className={`flex-1 flex items-center justify-center gap-xs h-10 rounded-lg border cursor-pointer transition-colors ${formData.role === 'STUDENT' ? 'bg-secondary-container text-on-secondary-container border-secondary-fixed font-medium' : 'bg-surface-container/50 text-on-surface-variant border-outline-variant'}`}>
+                <input type="radio" name="role" value="STUDENT" checked={formData.role === 'STUDENT'} onChange={handleChange} className="hidden" />
+                <span className="material-symbols-outlined text-[18px]">person</span>
+                <span className="text-sm">Student</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-sm">
+            <div className="flex flex-col gap-xs">
+              <label className="text-label-sm font-mono text-on-surface-variant uppercase tracking-wider">Password</label>
+              <input 
+                type="password" 
+                name="password"
+                placeholder="••••••••" 
+                value={formData.password}
+                onChange={handleChange}
+                required
+                className="input bg-surface-container/50 border-outline-variant h-12" 
+              />
+            </div>
+            <div className="flex flex-col gap-xs">
+              <label className="text-label-sm font-mono text-on-surface-variant uppercase tracking-wider">Confirm</label>
+              <input 
+                type="password" 
+                name="confirmPassword"
+                placeholder="••••••••" 
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required
+                className="input bg-surface-container/50 border-outline-variant h-12" 
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div className="alert bg-error/10 border-error text-error text-sm py-2">
+              <span className="material-symbols-outlined text-[18px]">error</span>
+              {error}
+            </div>
+          )}
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="btn-primary w-full h-12 justify-center text-body-lg font-medium mt-sm"
+          >
+            {loading ? 'Creating Account...' : 'Create Account'}
+            {!loading && <span className="material-symbols-outlined ml-xs">arrow_forward</span>}
+          </button>
+        </form>
+
+        <div className="mt-xl pt-lg border-t border-outline-variant flex flex-col items-center gap-xs text-center">
+          <Link href="/auth/login" className="flex items-center gap-xs text-on-surface-variant hover:text-primary transition-colors">
+            <span className="material-symbols-outlined text-[20px]">login</span>
+            <span className="font-medium text-sm">Already have an account? Sign in</span>
+          </Link>
         </div>
 
-        {/* Footer info box */}
-        <div className="mt-8 text-center text-[11px] text-zinc-600 font-medium tracking-wide">
-          <p className="mb-1">Secure Enterprise Access Environment</p>
-          <p>© 2026 OnGrid Systems Inc.</p>
-        </div>
       </div>
     </div>
   );
