@@ -25,6 +25,8 @@ model User {
   name             String
   role             Role
   deviceFingerprint String? // nullable — populated on first login
+  deviceRegisteredAt DateTime? // Tracks when the student locked their device (WebAuthn registered)
+  logoutRequested   Boolean  @default(false) // Tracks if student requested teacher to approve a device reset
   createdAt        DateTime @default(now())
 
   // Relations

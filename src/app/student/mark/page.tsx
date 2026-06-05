@@ -23,7 +23,9 @@ import {
   Layers,
   Wifi,
   Smartphone,
+  Fingerprint,
 } from 'lucide-react';
+import { startAuthentication } from '@simplewebauthn/browser';
 import {
   collectSensorReading,
   computeFloorConfidence,
@@ -46,14 +48,9 @@ interface Session {
   teacher: { name: string };
 }
 
-// Step labels for the multi-sensor pipeline
 const SCAN_STEPS = [
-  'Contacting GPS satellites',
-  'Reading barometric pressure sensor',
-  'Sampling accelerometer & gyroscope',
-  'Computing 3D confidence score',
-  'Validating 2D geofence polygon',
-  'Validating floor & altitude match',
+  'Verifying biometric identity (Passkey/FaceID)',
+  'Contacting GPS satellites for geofence',
   'Locking presence timestamp',
 ];
 
@@ -113,32 +110,36 @@ export default function MarkAttendancePage() {
     abortRef.current = false;
 
     try {
-      // ── Collect all sensor data with progress callbacks ─────────────────
+      // ── 1. WebAuthn Biometric Verification ─────────────────────────────────
+      setStep(1);
+      console.log(`[Sensor] Step 1: Biometric Verification`);
+      
+      const optRes = await fetch('/api/webauthn/authenticate/generate-options');
+      if (!optRes.ok) {
+        const d = await optRes.json();
+        throw new Error(d.message || 'Failed to initialize biometric challenge. Register your device first.');
+      }
+      const options = await optRes.json();
+
+      let webAuthnAssertion;
+      try {
+        webAuthnAssertion = await startAuthentication(options);
+      } catch (authErr: any) {
+        throw new Error('Biometric verification cancelled or failed.');
+      }
+
+      // ── 2. Collect GPS & Sensors ──────────────────────────────────────────
+      setStep(2);
+      console.log(`[Sensor] Step 2: Collecting GPS`);
       const sensorData = await collectSensorReading((sensorStep, label) => {
-        setStep(sensorStep);
-        console.log(`[Sensor] Step ${sensorStep}: ${label}`);
+        // Just log, we simplified steps
+        console.log(`[Sensor] Collecting: ${label}`);
       });
 
       if (abortRef.current) return;
 
       setLiveSensor(sensorData);
-      setStep(4);
-
-      // Compute floor confidence locally for UI display
-      const confidence = computeFloorConfidence(sensorData, {
-        altitudeMeters: sess.classroom.altitudeMeters,
-        pressureHpa: sess.classroom.pressureHpa,
-        altitudeTolerance: sess.classroom.altitudeTolerance,
-        floor: sess.classroom.floor,
-      });
-
-      setLiveConfidence(confidence.score);
-      setStep(5); // polygon validation (happens server-side)
-
-      await new Promise((r) => setTimeout(r, 500));
-      setStep(6); // floor validation (happens server-side)
-      await new Promise((r) => setTimeout(r, 500));
-      setStep(7); // locking timestamp
+      setStep(3); // locking timestamp
 
       // ── Send to server ───────────────────────────────────────────────────
       const response = await fetch('/api/attendance/mark', {
@@ -148,12 +149,12 @@ export default function MarkAttendancePage() {
           sessionId: sess.id,
           lat: sensorData.lat,
           lng: sensorData.lng,
+          webAuthnAssertion,
           altitude: sensorData.gpsAltitude,
           pressure: sensorData.pressureHpa,
-          sensorConfidence: confidence.score,
+          sensorConfidence: 1.0, // Altitude check removed, so default to 1
           deviceOrientation: sensorData.orientation,
           isStationary: sensorData.isStationary,
-          deviceFingerprint: navigator.userAgent,
         }),
       });
 
@@ -224,7 +225,7 @@ export default function MarkAttendancePage() {
             Check-In Attendance
           </h1>
           <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-1.5">
-            3D geofence verification — GPS position, barometric altitude, and device motion sensors.
+            Biometric verification & GPS geofence positioning.
           </p>
         </div>
 
@@ -279,12 +280,6 @@ export default function MarkAttendancePage() {
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                         <span>Active Gate</span>
                       </span>
-                      {(sess.classroom.pressureHpa != null || sess.classroom.altitudeMeters != null) && (
-                        <span className="badge flex items-center gap-1 bg-violet-100 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800/40 text-[10px]">
-                          <MoveVertical className="w-2.5 h-2.5" />
-                          3D Floor Lock
-                        </span>
-                      )}
                     </div>
                   </div>
 
@@ -312,15 +307,15 @@ export default function MarkAttendancePage() {
                           <div className="absolute inset-0 rounded-full animate-radar bg-indigo-500/10"></div>
                           <div className="absolute inset-2 rounded-full animate-radar bg-indigo-500/15 [animation-delay:0.8s]"></div>
                           <div className="absolute inset-4 rounded-full animate-radar bg-indigo-500/20 [animation-delay:1.6s]"></div>
-                          <Locate className="w-6 h-6 text-indigo-500 animate-pulse relative z-10" />
+                          <Fingerprint className="w-6 h-6 text-indigo-500 animate-pulse relative z-10" />
                         </div>
                         <div>
                           <h4 className="text-sm font-extrabold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
-                            3D Geofence Scan In Progress
+                            Security Scan In Progress
                           </h4>
                           <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
-                            Fusing GPS, barometer, accelerometer & gyroscope
+                            Biometric Passkey & GPS location verification
                           </p>
                         </div>
                       </div>
@@ -368,86 +363,29 @@ export default function MarkAttendancePage() {
                         })}
                       </div>
 
-                      {/* Live Sensor Readings (shown after step 4) */}
-                      {liveSensor && step >= 4 && (
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-indigo-100 dark:border-indigo-900/30 animate-fade-in">
-                          {/* Pressure */}
-                          <div className="rounded-xl bg-white/60 dark:bg-zinc-900/40 border border-indigo-100 dark:border-indigo-900/30 p-2.5">
-                            <div className="flex items-center gap-1 mb-1 text-indigo-500">
-                              <Gauge className="w-3 h-3" />
-                              <span className="text-[9px] font-bold uppercase tracking-wider">Pressure</span>
-                            </div>
-                            <p className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50">
-                              {liveSensor.pressureHpa != null
-                                ? `${liveSensor.pressureHpa.toFixed(1)} hPa`
-                                : <span className="text-zinc-400 text-xs">N/A</span>
-                              }
-                            </p>
-                          </div>
-
-                          {/* GPS Altitude */}
-                          <div className="rounded-xl bg-white/60 dark:bg-zinc-900/40 border border-indigo-100 dark:border-indigo-900/30 p-2.5">
-                            <div className="flex items-center gap-1 mb-1 text-violet-500">
-                              <MoveVertical className="w-3 h-3" />
-                              <span className="text-[9px] font-bold uppercase tracking-wider">GPS Alt</span>
-                            </div>
-                            <p className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50">
-                              {liveSensor.gpsAltitude != null
-                                ? `${liveSensor.gpsAltitude.toFixed(1)}m`
-                                : <span className="text-zinc-400 text-xs">N/A</span>
-                              }
-                            </p>
-                          </div>
-
-                          {/* Orientation */}
-                          <div className="rounded-xl bg-white/60 dark:bg-zinc-900/40 border border-indigo-100 dark:border-indigo-900/30 p-2.5">
-                            <div className="flex items-center gap-1 mb-1 text-amber-500">
-                              <Navigation className="w-3 h-3" />
-                              <span className="text-[9px] font-bold uppercase tracking-wider">Tilt</span>
-                            </div>
-                            <p className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50">
-                              {liveSensor.orientation.beta != null
-                                ? `β${liveSensor.orientation.beta.toFixed(0)}°`
-                                : <span className="text-zinc-400 text-xs">N/A</span>
-                              }
-                            </p>
-                          </div>
-
-                          {/* Stability */}
+                      {/* Live Sensor Readings (shown after step 2) */}
+                      {liveSensor && step >= 2 && (
+                        <div className="grid grid-cols-2 gap-2 pt-3 border-t border-indigo-100 dark:border-indigo-900/30 animate-fade-in">
+                          {/* GPS Valid */}
                           <div className="rounded-xl bg-white/60 dark:bg-zinc-900/40 border border-indigo-100 dark:border-indigo-900/30 p-2.5">
                             <div className="flex items-center gap-1 mb-1 text-emerald-500">
-                              <Activity className="w-3 h-3" />
-                              <span className="text-[9px] font-bold uppercase tracking-wider">Motion</span>
+                              <MapPin className="w-3 h-3" />
+                              <span className="text-[9px] font-bold uppercase tracking-wider">GPS</span>
                             </div>
-                            <p className={`text-xs font-extrabold ${liveSensor.isStationary ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                              {liveSensor.isStationary ? 'Stationary ✓' : 'Moving ⚠'}
+                            <p className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50">
+                              Locked
                             </p>
                           </div>
-                        </div>
-                      )}
 
-                      {/* Confidence Score */}
-                      {liveConfidence != null && (
-                        <div className="animate-fade-in">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Floor Match Confidence</span>
-                            <span className={`text-sm font-extrabold ${
-                              liveConfidence >= 0.7 ? 'text-emerald-600 dark:text-emerald-400' :
-                              liveConfidence >= 0.4 ? 'text-amber-600 dark:text-amber-400' :
-                              'text-rose-600 dark:text-rose-400'
-                            }`}>
-                              {(liveConfidence * 100).toFixed(0)}%
-                            </span>
-                          </div>
-                          <div className="h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-700 ${
-                                liveConfidence >= 0.7 ? 'bg-emerald-500' :
-                                liveConfidence >= 0.4 ? 'bg-amber-500' :
-                                'bg-rose-500'
-                              }`}
-                              style={{ width: `${liveConfidence * 100}%` }}
-                            />
+                          {/* Identity */}
+                          <div className="rounded-xl bg-white/60 dark:bg-zinc-900/40 border border-indigo-100 dark:border-indigo-900/30 p-2.5">
+                            <div className="flex items-center gap-1 mb-1 text-violet-500">
+                              <Fingerprint className="w-3 h-3" />
+                              <span className="text-[9px] font-bold uppercase tracking-wider">Identity</span>
+                            </div>
+                            <p className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50">
+                              Verified
+                            </p>
                           </div>
                         </div>
                       )}
@@ -471,56 +409,38 @@ export default function MarkAttendancePage() {
               <div className="card bg-indigo-50/30 dark:bg-indigo-950/10 border-indigo-200/50 dark:border-indigo-900/30">
                 <div className="flex items-center gap-2.5 mb-4 text-indigo-950 dark:text-indigo-200">
                   <ShieldCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                  <h3 className="font-extrabold text-sm tracking-tight">3D Geofence Compliance</h3>
+                  <h3 className="font-extrabold text-sm tracking-tight">Identity & Geofence Compliance</h3>
                 </div>
                 <ul className="text-xs text-indigo-800/80 dark:text-indigo-400/80 space-y-3 leading-relaxed font-semibold">
                   <li className="flex items-start gap-2">
                     <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-1.5 flex-shrink-0"></span>
-                    <span><strong>GPS Position:</strong> Must be physically within the classroom&apos;s lat/lng boundary.</span>
+                    <span><strong>Biometric Lock:</strong> Only the student's registered device with Face ID / Fingerprint can check in.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-1.5 flex-shrink-0"></span>
-                    <span><strong>Barometric Floor:</strong> Pressure sensor verifies you&apos;re on the correct floor — different floors will be rejected.</span>
+                    <span><strong>GPS Position:</strong> Must be physically within the classroom's lat/lng boundary.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-1.5 flex-shrink-0"></span>
-                    <span><strong>Motion Check:</strong> Device should be held stationary during scan for best accuracy.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-1.5 flex-shrink-0"></span>
-                    <span><strong>Anti-Spoofing:</strong> Sensor fingerprints and device motion patterns flag spoofed coordinates.</span>
+                    <span><strong>Campus Network:</strong> Device IP must match the teacher's campus building subnet.</span>
                   </li>
                 </ul>
 
                 <div className="mt-6 pt-5 border-t border-indigo-100 dark:border-indigo-900/40 text-[10px] text-zinc-400 dark:text-zinc-500 flex items-center gap-2">
                   <Info className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-                  <span>Allow location access when prompted. For best results, use a mobile browser with all sensors enabled.</span>
+                  <span>Allow biometric and location access when prompted.</span>
                 </div>
               </div>
 
-              {/* Sensor availability notice */}
+              {/* Device Notice */}
               <div className="card bg-zinc-50/50 dark:bg-zinc-900/20 border-zinc-200/50 dark:border-zinc-800/50">
                 <div className="flex items-center gap-2 mb-3 text-zinc-700 dark:text-zinc-300">
-                  <Smartphone className="w-4 h-4 text-zinc-500" />
-                  <h4 className="text-xs font-bold">Sensor Requirements</h4>
+                  <Fingerprint className="w-4 h-4 text-zinc-500" />
+                  <h4 className="text-xs font-bold">1-Device Policy Enforced</h4>
                 </div>
-                <div className="space-y-2 text-[10px] text-zinc-500 dark:text-zinc-400">
-                  <div className="flex items-center gap-2">
-                    <Gauge className="w-3 h-3 text-indigo-400" />
-                    <span><strong>Barometer:</strong> Chrome/Android (best accuracy)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Navigation className="w-3 h-3 text-violet-400" />
-                    <span><strong>GPS Altitude:</strong> Mobile with satellite fix</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-3 h-3 text-amber-400" />
-                    <span><strong>Motion sensors:</strong> iOS + Android browsers</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Wifi className="w-3 h-3 text-emerald-400" />
-                    <span><strong>Fallback:</strong> 2D geofence if sensors unavailable</span>
-                  </div>
+                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                  Your account is securely bound to this device's Passkey/Biometric module. 
+                  Login from other devices is blocked to prevent proxy attendance.
                 </div>
               </div>
             </div>

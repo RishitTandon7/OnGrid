@@ -38,6 +38,7 @@ export const markAttendanceSchema = z.object({
   sessionId: z.string().min(1, 'Session ID required'),
   lat: z.number(),
   lng: z.number(),
+  webAuthnAssertion: z.any(),
   // Sensor telemetry from student's device
   altitude: z.number().nullable().optional(),
   pressure: z.number().nullable().optional(),

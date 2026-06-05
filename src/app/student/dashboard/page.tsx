@@ -11,8 +11,11 @@ import {
   Award, 
   History, 
   Activity,
-  MapPinCheck
+  MapPinCheck,
+  Fingerprint,
+  Smartphone
 } from 'lucide-react';
+import { startRegistration } from '@simplewebauthn/browser';
 
 interface AttendanceRecord {
   id: string;
@@ -30,6 +33,9 @@ export default function StudentDashboard() {
   const router = useRouter();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [regError, setRegError] = useState('');
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -40,8 +46,55 @@ export default function StudentDashboard() {
   useEffect(() => {
     if (session) {
       fetchRecords();
+      fetchBiometricStatus();
     }
   }, [session]);
+
+  const fetchBiometricStatus = async () => {
+    try {
+      const res = await fetch('/api/webauthn/status');
+      const data = await res.json();
+      setIsRegistered(data.isRegistered);
+    } catch (e) {
+      console.error('Error fetching biometric status:', e);
+    }
+  };
+
+  const registerDevice = async () => {
+    setRegistering(true);
+    setRegError('');
+    try {
+      // 1. Get options
+      const optRes = await fetch('/api/webauthn/register/generate-options');
+      const options = await optRes.json();
+      
+      if (!optRes.ok) {
+        throw new Error(options.message || 'Failed to generate options');
+      }
+
+      // 2. Start registration in browser
+      const attResp = await startRegistration(options);
+
+      // 3. Verify on server
+      const verRes = await fetch('/api/webauthn/register/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(attResp),
+      });
+
+      if (verRes.ok) {
+        setIsRegistered(true);
+      } else {
+        const errorData = await verRes.json();
+        throw new Error(errorData.message || 'Failed to verify');
+      }
+    } catch (err: any) {
+      setRegError(err.message || 'Registration failed');
+      console.error(err);
+    } finally {
+      setRegistering(false);
+    }
+  };
 
   const fetchRecords = async () => {
     try {
@@ -155,6 +208,39 @@ export default function StudentDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Biometric Registration Banner */}
+        {!isRegistered && !loading && (
+          <div className="card-premium mb-8 border-amber-200/50 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20">
+            <div className="flex flex-col md:flex-row gap-5 items-start md:items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-amber-900 dark:text-amber-50 flex items-center gap-2">
+                  <Fingerprint className="w-5 h-5 text-amber-500" />
+                  Biometric Setup Required
+                </h3>
+                <p className="text-sm text-amber-700/80 dark:text-amber-400/80 mt-1">
+                  You must register this device using Fingerprint or Face ID to mark attendance. 
+                  <strong> Only one device can be registered per student.</strong>
+                </p>
+                {regError && <p className="text-xs text-rose-500 mt-2 font-bold">{regError}</p>}
+              </div>
+              <button 
+                onClick={registerDevice}
+                disabled={registering}
+                className="btn border-amber-200 dark:border-amber-800 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 hover:bg-amber-200/60 dark:hover:bg-amber-800/60 font-semibold whitespace-nowrap"
+              >
+                {registering ? 'Waiting for prompt...' : 'Setup Device Lock'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isRegistered && (
+           <div className="alert alert-success mb-8 flex items-center gap-2">
+             <Smartphone className="w-4 h-4 flex-shrink-0" />
+             <span>Device locked to this account for biometric attendance verification.</span>
+           </div>
+        )}
 
         {/* Records Content */}
         {records.length === 0 ? (

@@ -3,8 +3,11 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { markAttendanceSchema } from '@/lib/validators';
-import { isPointInPolygon, isAltitudeValid } from '@/lib/geofence';
+import { isPointInPolygon } from '@/lib/geofence';
 import { extractIpv4, isSameSubnet } from '@/lib/network';
+import { verifyAuthenticationResponse } from '@simplewebauthn/server';
+import { rpID, origin } from '@/lib/webauthn';
+import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,10 +32,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { sessionId, lat, lng, altitude, pressure, sensorConfidence } = validation.data;
+    const { sessionId, lat, lng, webAuthnAssertion, altitude, pressure, sensorConfidence } = validation.data;
     const studentId = session.user.id;
 
-    // Get the session with classroom details (including altitude calibration)
+    const user = await prisma.user.findUnique({
+      where: { id: studentId },
+      include: { webAuthnCredentials: true },
+    });
+
+    if (!user || user.webAuthnCredentials.length === 0) {
+      return NextResponse.json(
+        { message: 'You must register a biometric device (Fingerprint/Face ID) before marking attendance.' },
+        { status: 403 }
+      );
+    }
+
+    // Get the session with classroom details
     const attendanceSession = await prisma.attendanceSession.findUnique({
       where: { id: sessionId },
       include: { classroom: true },
@@ -64,32 +79,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── 2. Vertical altitude / floor check ───────────────────────────────────
-    const classroom = attendanceSession.classroom;
-    const altitudeCheck = isAltitudeValid(
-      { altitude: altitude ?? null, pressure: pressure ?? null },
-      {
-        altitudeMeters: classroom.altitudeMeters,
-        pressureHpa: classroom.pressureHpa,
-        altitudeTolerance: classroom.altitudeTolerance,
-      }
-    );
-
-    if (!altitudeCheck.valid) {
-      const delta = altitudeCheck.deltaMeters != null
-        ? Math.abs(altitudeCheck.deltaMeters).toFixed(0)
-        : 'unknown';
-      const direction = altitudeCheck.deltaMeters != null
-        ? (altitudeCheck.deltaMeters > 0 ? 'below' : 'above')
-        : '';
+    // ── 2. Biometric (WebAuthn) Check ─────────────────────────────────────────
+    const expectedChallenge = cookies().get('webauthn_auth_challenge')?.value;
+    if (!expectedChallenge) {
       return NextResponse.json(
-        {
-          message: `Floor mismatch detected — you appear to be ~${delta}m ${direction} the classroom (Floor ${classroom.floor}). Please ensure you are physically in the correct room.`,
-          altitudeCheck,
-        },
+        { message: 'Biometric session expired. Please refresh the page and try again.' },
         { status: 400 }
       );
     }
+
+    const credentialId = Buffer.from(webAuthnAssertion.id, 'base64url').toString('base64url');
+    const credential = user.webAuthnCredentials.find(c => c.credentialId === credentialId);
+
+    if (!credential) {
+      return NextResponse.json(
+        { message: 'Unrecognized biometric device. You can only use your registered device.' },
+        { status: 403 }
+      );
+    }
+
+    const verification = await verifyAuthenticationResponse({
+      response: webAuthnAssertion,
+      expectedChallenge,
+      expectedOrigin: origin,
+      expectedRPID: rpID,
+      requireUserVerification: true,
+      authenticator: {
+        credentialID: new Uint8Array(Buffer.from(credential.credentialId, 'base64url')),
+        credentialPublicKey: new Uint8Array(Buffer.from(credential.publicKey, 'base64url')),
+        counter: credential.counter,
+      },
+    });
+
+    if (!verification.verified || !verification.authenticationInfo) {
+      return NextResponse.json(
+        { message: 'Biometric verification failed.' },
+        { status: 403 }
+      );
+    }
+
+    // Update the counter
+    await prisma.webAuthnCredential.update({
+      where: { id: credential.id },
+      data: { counter: verification.authenticationInfo.newCounter },
+    });
+
+    // Clear the challenge
+    cookies().delete('webauthn_auth_challenge');
 
     // ── 3. WiFi subnet check — must be on the same building network as teacher ─
     const rawStudentIp =
@@ -136,12 +172,12 @@ export async function POST(request: NextRequest) {
         pressure: pressure ?? null,
         sensorConfidence: sensorConfidence ?? null,
         ipAddress: ip,
-        deviceFingerprint: body.deviceFingerprint || 'unknown',
+        deviceFingerprint: credentialId, // Save the WebAuthn credential ID as the device fingerprint
       },
     });
 
     return NextResponse.json(
-      { ...record, altitudeMethod: altitudeCheck.method },
+      { ...record },
       { status: 201 }
     );
   } catch (error) {
