@@ -7,6 +7,6 @@ export default defineConfig({
     path: 'prisma/migrations',
   },
   datasource: {
-    url: process.env.DATABASE_URL || 'postgresql://mock:mock@localhost:5432/mock',
+    url: process.env.DATABASE_URL!,
   },
 });
