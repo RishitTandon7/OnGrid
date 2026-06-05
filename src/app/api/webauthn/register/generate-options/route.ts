@@ -45,8 +45,8 @@ export async function GET() {
       },
       // Prevent re-registration of existing credentials
       excludeCredentials: user.webAuthnCredentials.map(cred => ({
-        id: cred.credentialId,
-        type: 'public-key',
+        id: new Uint8Array(Buffer.from(cred.credentialId, 'base64url')),
+        type: 'public-key' as const,
       })),
     });
 
