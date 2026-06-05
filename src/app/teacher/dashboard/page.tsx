@@ -13,8 +13,9 @@ import {
   AlertCircle, 
   CheckCircle2, 
   Sliders, 
-  ArrowLeft,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck,
+  LayoutDashboard
 } from 'lucide-react';
 
 interface Session {
@@ -90,10 +91,10 @@ export default function TeacherDashboard() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-zinc-50 dark:bg-zinc-950">
+      <div className="flex items-center justify-center min-h-screen bg-black">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-indigo-500 border-t-transparent mb-4"></div>
-          <p className="text-zinc-500 dark:text-zinc-400 font-semibold text-sm">Loading sessions...</p>
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-violet-500 border-t-transparent mb-4"></div>
+          <p className="text-zinc-400 font-semibold text-sm animate-pulse">Loading sessions...</p>
         </div>
       </div>
     );
@@ -103,147 +104,154 @@ export default function TeacherDashboard() {
   const totalStudentsMarked = sessions.reduce((acc, s) => acc + s.records.length, 0);
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col relative overflow-hidden">
-      {/* Background Glow */}
-      <div className="absolute top-[-10%] right-[-10%] w-[35%] h-[35%] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none"></div>
+    <div className="min-h-screen bg-black flex flex-col relative overflow-hidden text-zinc-100">
+      {/* Mesh Gradient Background */}
+      <div className="absolute inset-0 bg-mesh-dark opacity-40 pointer-events-none"></div>
 
-      <nav className="nav-bar">
-        <div className="nav-container">
-          <div className="nav-content">
-            <Link href="/" className="nav-brand">
-              OnGrid
+      {/* Floating Glowing Orbs */}
+      <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none"></div>
+      <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-violet-600/10 rounded-full blur-[150px] pointer-events-none"></div>
+
+      <nav className="nav-bar border-b border-white/5">
+        <div className="container-page flex items-center justify-between py-4">
+          <Link href="/" className="nav-brand flex items-center gap-2">
+            <ShieldCheck className="w-6 h-6 text-violet-500" />
+            OnGrid Instructor
+          </Link>
+          <div className="flex items-center gap-6">
+            <Link href="/teacher/classrooms" className="nav-link text-zinc-400 hover:text-white font-bold transition-colors">
+              Classrooms
             </Link>
-            <div className="nav-menu">
-              <Link href="/teacher/classrooms" className="nav-link">
-                Classrooms
-              </Link>
-              <Link href="/teacher/sessions/new" className="nav-link">
-                New Session
-              </Link>
-              <Link href="/" className="nav-link">
-                Home
-              </Link>
+            <Link href="/teacher/sessions/new" className="nav-link text-zinc-400 hover:text-white font-bold transition-colors">
+              New Session
+            </Link>
+            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
+              <span className="text-xs font-bold text-white">{session?.user?.name?.charAt(0) || 'U'}</span>
             </div>
           </div>
         </div>
       </nav>
 
-      <main className="flex-1 container-page py-12 px-4 relative z-10 animate-fade-in">
-        {/* Back Link */}
-        <Link href="/" className="inline-flex items-center gap-1.5 text-zinc-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 text-xs font-semibold mb-6 transition-colors">
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Back to Hub
-        </Link>
-
+      <main className="flex-1 container-page py-12 relative z-10 animate-fade-in">
         {/* Dashboard Title */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-10">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div>
-            <h1 className="text-3xl font-extrabold text-zinc-950 dark:text-white tracking-tight">
-              Attendance Sessions
+            <h1 className="heading-display mb-3 flex items-center gap-3">
+              <LayoutDashboard className="w-8 h-8 text-violet-400" />
+              Instructor Dashboard
             </h1>
-            <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-1.5">
-              Create, review, and toggle live coordinate verification check-ins.
+            <p className="text-zinc-400 text-base max-w-lg">
+              Manage your active attendance sessions, review student check-ins, and orchestrate live coordinate verification.
             </p>
           </div>
-          <Link href="/teacher/sessions/new" className="btn btn-primary flex items-center gap-2 self-start md:self-auto">
-            <Plus className="w-4 h-4" />
-            <span>Start New Session</span>
+          <Link href="/teacher/sessions/new" className="btn btn-primary shadow-[0_0_40px_rgba(139,92,246,0.3)] px-8 h-14">
+            <Plus className="w-5 h-5 mr-2" />
+            Start Session
           </Link>
         </div>
 
         {/* Alerts */}
         {success && (
-          <div className="alert alert-success mb-6 animate-fade-in flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-            <span>{success}</span>
+          <div className="alert bg-emerald-500/10 border-emerald-500/20 text-emerald-300 mb-8 flex items-center gap-3 backdrop-blur-md">
+            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+            <span className="font-bold">{success}</span>
           </div>
         )}
         {error && (
-          <div className="alert alert-error mb-6 animate-fade-in flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{error}</span>
+          <div className="alert bg-rose-500/10 border-rose-500/20 text-rose-300 mb-8 flex items-center gap-3 backdrop-blur-md">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <span className="font-bold">{error}</span>
           </div>
         )}
 
         {/* Quick Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-          <div className="card bg-white/50 dark:bg-zinc-900/30 flex items-center gap-5">
-            <div className="w-12 h-12 rounded-xl bg-indigo-500/10 dark:bg-indigo-400/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-              <Calendar className="w-5 h-5" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <div className="card-premium py-8 border-white/5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 rounded-[16px] bg-white/5 border border-white/10 flex items-center justify-center text-indigo-400">
+                <Calendar className="w-6 h-6" />
+              </div>
             </div>
             <div>
-              <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Total Sessions</p>
-              <h3 className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-50 mt-0.5">{sessions.length}</h3>
+              <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Total Sessions</p>
+              <h3 className="text-4xl font-display font-extrabold text-white">{sessions.length}</h3>
             </div>
           </div>
-          <div className="card bg-white/50 dark:bg-zinc-900/30 flex items-center gap-5">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${activeCount > 0 ? 'bg-emerald-500/10 text-emerald-500 animate-pulse' : 'bg-zinc-500/10 text-zinc-400'}`}>
-              <Activity className="w-5 h-5" />
+
+          <div className="card-premium py-8 border-white/5 relative overflow-hidden group">
+            {activeCount > 0 && (
+              <div className="absolute inset-0 bg-emerald-500/5 group-hover:bg-emerald-500/10 transition-colors pointer-events-none"></div>
+            )}
+            <div className="flex items-center justify-between mb-4 relative z-10">
+              <div className={`w-12 h-12 rounded-[16px] border flex items-center justify-center ${activeCount > 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-white/5 border-white/10 text-zinc-500'}`}>
+                <Activity className={`w-6 h-6 ${activeCount > 0 ? 'animate-pulse' : ''}`} />
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Active Sessions</p>
-              <h3 className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-50 mt-0.5">{activeCount}</h3>
+            <div className="relative z-10">
+              <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Active Sessions</p>
+              <h3 className="text-4xl font-display font-extrabold text-white">{activeCount}</h3>
             </div>
           </div>
-          <div className="card bg-white/50 dark:bg-zinc-900/30 flex items-center gap-5">
-            <div className="w-12 h-12 rounded-xl bg-violet-500/10 dark:bg-violet-400/10 flex items-center justify-center text-violet-600 dark:text-violet-400">
-              <Users className="w-5 h-5" />
+
+          <div className="card-premium py-8 border-white/5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 rounded-[16px] bg-white/5 border border-white/10 flex items-center justify-center text-violet-400">
+                <Users className="w-6 h-6" />
+              </div>
             </div>
             <div>
-              <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Total Check-ins</p>
-              <h3 className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-50 mt-0.5">{totalStudentsMarked}</h3>
+              <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Total Check-ins</p>
+              <h3 className="text-4xl font-display font-extrabold text-white">{totalStudentsMarked}</h3>
             </div>
           </div>
         </div>
 
         {/* Sessions Content */}
         {sessions.length === 0 ? (
-          <div className="card py-16 text-center max-w-xl mx-auto border-dashed border-zinc-200 dark:border-zinc-800 bg-white/40 dark:bg-zinc-900/20">
-            <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-5 text-zinc-400 dark:text-zinc-600">
+          <div className="card-premium py-20 text-center border-dashed border-white/10 bg-white/5">
+            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 text-zinc-500 border border-white/10">
               <Calendar className="w-8 h-8" />
             </div>
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">No sessions recorded</h2>
-            <p className="text-zinc-400 dark:text-zinc-500 text-sm mt-1.5 max-w-sm mx-auto leading-relaxed">
+            <h2 className="text-2xl font-display font-bold text-white mb-2">No sessions recorded</h2>
+            <p className="text-zinc-500 text-base max-w-md mx-auto leading-relaxed mb-8">
               Before students can check-in, you must start an active attendance session for an existing classroom.
             </p>
-            <Link href="/teacher/sessions/new" className="btn btn-primary mt-6">
+            <Link href="/teacher/sessions/new" className="btn btn-primary h-14 px-8 text-base shadow-[0_0_30px_rgba(139,92,246,0.3)]">
               Start Your First Session
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {sessions.map((sess) => (
-              <div key={sess.id} className={`card flex flex-col justify-between ${sess.isActive ? 'border-emerald-500/30 dark:border-emerald-500/20 shadow-[0_4px_25px_rgba(16,185,129,0.02)]' : ''}`}>
+              <div key={sess.id} className={`card-premium p-6 flex flex-col justify-between transition-all duration-300 ${sess.isActive ? 'border-emerald-500/30 bg-emerald-950/10 shadow-[0_0_30px_rgba(16,185,129,0.1)]' : 'border-white/5 bg-white/5'}`}>
                 <div>
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start justify-between mb-6">
                     <div>
-                      <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 tracking-tight leading-tight">
+                      <h2 className="text-xl font-display font-bold text-white tracking-tight leading-tight mb-1">
                         {sess.classroom.name}
                       </h2>
-                      <p className="text-zinc-400 dark:text-zinc-500 text-xs font-semibold mt-1">Room {sess.classroom.label}</p>
+                      <p className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">Room {sess.classroom.label}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {sess.isActive && (
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      )}
-                      <span className={`badge ${sess.isActive ? 'badge-success' : 'badge-warning'}`}>
-                        {sess.isActive ? 'Active' : 'Ended'}
+                      <span className={`badge px-2.5 py-1 flex items-center gap-1.5 ${sess.isActive ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/10 text-zinc-400 border border-white/10'}`}>
+                        {sess.isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>}
+                        {sess.isActive ? 'LIVE' : 'ENDED'}
                       </span>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-xs text-zinc-500 dark:text-zinc-400 border-t border-b border-zinc-100 dark:border-zinc-800/80 py-4 my-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm text-zinc-400 bg-black/40 border border-white/5 rounded-2xl p-4 mb-6">
                     <div className="flex items-center gap-2 font-medium">
-                      <Clock className="w-4 h-4 text-indigo-500 flex-shrink-0" />
-                      <span>{new Date(sess.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <Clock className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+                      <span className="text-white">{new Date(sess.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <div className="flex items-center gap-2 font-medium">
-                      <Users className="w-4 h-4 text-violet-500 flex-shrink-0" />
-                      <span>{sess.records.length} Present</span>
+                      <Users className="w-4 h-4 text-fuchsia-400 flex-shrink-0" />
+                      <span className="text-white">{sess.records.length} Present</span>
                     </div>
                     <div className="flex items-center gap-2 font-medium col-span-2 mt-1">
-                      <Sliders className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-                      <span>Active for {sess.windowMinutes} mins</span>
+                      <Sliders className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+                      <span>Window: <strong className="text-white">{sess.windowMinutes} mins</strong></span>
                     </div>
                   </div>
                 </div>
@@ -251,18 +259,20 @@ export default function TeacherDashboard() {
                 <div className="flex gap-3 mt-2">
                   <button
                     onClick={() => toggleSession(sess.id, sess.isActive)}
-                    className={`flex-1 btn btn-sm ${
-                      sess.isActive ? 'btn-danger bg-gradient-to-r from-red-500 to-rose-500' : 'btn-success'
+                    className={`flex-1 btn h-12 text-sm font-bold border-none transition-all ${
+                      sess.isActive 
+                        ? 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 hover:text-rose-300' 
+                        : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 hover:text-emerald-300'
                     }`}
                   >
                     {sess.isActive ? 'End Session' : 'Reopen'}
                   </button>
                   <Link
                     href={`/teacher/sessions/${sess.id}`}
-                    className="flex-1 btn btn-secondary btn-sm flex items-center justify-center gap-1"
+                    className="flex-[1.5] btn btn-secondary h-12 text-sm font-bold border-white/10 hover:border-white/20 bg-white/5 flex items-center justify-center gap-2"
                   >
-                    <span>Details</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    <span>View Details</span>
+                    <ChevronRight className="w-4 h-4" />
                   </Link>
                 </div>
               </div>

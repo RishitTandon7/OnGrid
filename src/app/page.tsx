@@ -11,7 +11,8 @@ import {
   LogOut, 
   ArrowRight,
   Clock,
-  MapPinCheck
+  MapPinCheck,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function Home() {
@@ -26,10 +27,10 @@ export default function Home() {
 
   if (status === 'loading') {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-zinc-50 dark:bg-zinc-950">
+      <div className="flex items-center justify-center min-h-screen bg-black">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-indigo-500 border-t-transparent mb-4"></div>
-          <p className="text-zinc-500 dark:text-zinc-400 font-semibold text-sm">Authenticating session...</p>
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-violet-500 border-t-transparent mb-4"></div>
+          <p className="text-zinc-400 font-semibold text-sm animate-pulse">Authenticating session...</p>
         </div>
       </div>
     );
@@ -54,104 +55,104 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col relative overflow-hidden">
-      {/* Background Glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-500/5 blur-[100px] pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-violet-500/5 blur-[100px] pointer-events-none"></div>
+    <div className="min-h-screen bg-black flex flex-col relative overflow-hidden text-zinc-100">
+      {/* Mesh Gradient Background */}
+      <div className="absolute inset-0 bg-mesh-dark opacity-40 pointer-events-none"></div>
 
-      {/* Grid Overlay */}
-      <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.03] pointer-events-none" style={{
-        backgroundImage: 'radial-gradient(var(--foreground) 1px, transparent 0)',
-        backgroundSize: '20px 20px'
-      }}></div>
+      {/* Floating Glowing Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-600/10 blur-[150px] pointer-events-none"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-violet-600/10 blur-[150px] pointer-events-none"></div>
 
       {/* Navigation */}
-      <nav className="nav-bar">
-        <div className="nav-container">
-          <div className="nav-content">
-            <Link href="/" className="nav-brand">
-              OnGrid
-            </Link>
-            <div className="flex items-center gap-4">
-              <div className="hidden sm:flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-indigo-500/10 dark:bg-indigo-400/15 border border-indigo-500/20 dark:border-indigo-400/20 flex items-center justify-center text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                  {getInitials(userName)}
-                </div>
-                <div className="text-left leading-none">
-                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{userName}</p>
-                  <span className="text-[10px] text-zinc-400 font-semibold tracking-wider uppercase">{role}</span>
-                </div>
+      <nav className="nav-bar border-b border-white/5">
+        <div className="container-page flex items-center justify-between py-4">
+          <Link href="/" className="nav-brand flex items-center gap-2">
+            <ShieldCheck className="w-6 h-6 text-violet-500" />
+            OnGrid
+          </Link>
+          <div className="flex items-center gap-4 z-10">
+            <div className="hidden sm:flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold text-white shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+                {getInitials(userName)}
               </div>
-              <button
-                onClick={() => signOut()}
-                className="btn btn-secondary btn-sm flex items-center gap-1.5"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Sign Out</span>
-              </button>
+              <div className="text-left leading-none">
+                <p className="text-sm font-bold text-white">{userName}</p>
+                <span className="text-[10px] text-zinc-400 font-bold tracking-wider uppercase">{role}</span>
+              </div>
             </div>
+            <button
+              onClick={() => signOut()}
+              className="btn btn-secondary border-white/10 bg-white/5 hover:bg-white/10 flex items-center gap-2 h-10 px-4"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="text-sm font-bold">Sign Out</span>
+            </button>
           </div>
         </div>
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 container-page py-12 px-4 relative z-10 animate-fade-in">
+      <main className="flex-1 container-page py-16 relative z-10 animate-fade-in flex flex-col justify-center">
         {/* Welcome Section */}
-        <div className="mb-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800 rounded-full text-xs text-zinc-500 dark:text-zinc-400 font-semibold mb-3">
-            <Clock className="w-3.5 h-3.5 text-indigo-500" />
+        <div className="mb-16 max-w-3xl">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-xs text-zinc-400 font-bold mb-6 backdrop-blur-md">
+            <Clock className="w-4 h-4 text-violet-400" />
             <span>Welcome Back</span>
           </div>
-          <h1 className="text-4xl font-extrabold text-zinc-950 dark:text-white tracking-tight">
+          <h1 className="text-5xl md:text-6xl font-display font-extrabold text-white tracking-tight leading-tight mb-4">
             Hi, {userName}!
           </h1>
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-1.5">
+          <p className="text-zinc-400 text-lg max-w-xl leading-relaxed">
             Choose an option below to manage attendance geofences and verify coordinates.
           </p>
         </div>
 
         {/* Dashboard Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
           {isTeacher ? (
             <>
               {/* Teacher - Dashboard Summary */}
               <Link href="/teacher/dashboard" className="group">
-                <div className="card h-full flex flex-col justify-between hover:scale-[1.01] hover:border-indigo-500/30">
+                <div className="card-premium h-full p-8 border-white/5 bg-white/5 hover:bg-white/[0.07] transition-all duration-300 flex flex-col justify-between hover:scale-[1.02] hover:border-violet-500/30">
                   <div>
-                    <div className="w-12 h-12 rounded-xl bg-indigo-500/10 dark:bg-indigo-400/10 border border-indigo-500/20 dark:border-indigo-400/20 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
-                      <LayoutDashboard className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-[0_0_20px_rgba(99,102,241,0.2)]">
+                      <LayoutDashboard className="w-7 h-7 text-indigo-400" />
                     </div>
-                    <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-2">
+                    <h2 className="text-2xl font-display font-bold text-white mb-3">
                       Attendance Sessions
                     </h2>
-                    <p className="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed">
+                    <p className="text-zinc-400 text-base leading-relaxed">
                       Start, close, and manage real-time student location logging coordinates.
                     </p>
                   </div>
-                  <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-indigo-600 dark:text-indigo-400 text-sm font-bold">
+                  <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-between text-indigo-400 text-sm font-bold">
                     <span>Manage Sessions</span>
-                    <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+                    <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center transform group-hover:translate-x-2 transition-transform">
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
                   </div>
                 </div>
               </Link>
 
               {/* Teacher - Classrooms Geofencing */}
               <Link href="/teacher/classrooms" className="group">
-                <div className="card h-full flex flex-col justify-between hover:scale-[1.01] hover:border-violet-500/30">
+                <div className="card-premium h-full p-8 border-white/5 bg-white/5 hover:bg-white/[0.07] transition-all duration-300 flex flex-col justify-between hover:scale-[1.02] hover:border-violet-500/30">
                   <div>
-                    <div className="w-12 h-12 rounded-xl bg-violet-500/10 dark:bg-violet-400/10 border border-violet-500/20 dark:border-violet-400/20 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
-                      <BookOpen className="w-6 h-6 text-violet-600 dark:text-violet-400" />
+                    <div className="w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-[0_0_20px_rgba(139,92,246,0.2)]">
+                      <BookOpen className="w-7 h-7 text-violet-400" />
                     </div>
-                    <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-2">
+                    <h2 className="text-2xl font-display font-bold text-white mb-3">
                       Classrooms Geofencing
                     </h2>
-                    <p className="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed">
+                    <p className="text-zinc-400 text-base leading-relaxed">
                       Define classroom polygonal bounds by mapping precision coordinates.
                     </p>
                   </div>
-                  <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-violet-600 dark:text-violet-400 text-sm font-bold">
+                  <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-between text-violet-400 text-sm font-bold">
                     <span>Setup Classrooms</span>
-                    <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+                    <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center transform group-hover:translate-x-2 transition-transform">
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
                   </div>
                 </div>
               </Link>
@@ -160,42 +161,46 @@ export default function Home() {
             <>
               {/* Student - Mark Attendance */}
               <Link href="/student/mark" className="group">
-                <div className="card h-full flex flex-col justify-between hover:scale-[1.01] hover:border-indigo-500/30">
+                <div className="card-premium h-full p-8 border-white/5 bg-white/5 hover:bg-white/[0.07] transition-all duration-300 flex flex-col justify-between hover:scale-[1.02] hover:border-violet-500/30">
                   <div>
-                    <div className="w-12 h-12 rounded-xl bg-indigo-500/10 dark:bg-indigo-400/10 border border-indigo-500/20 dark:border-indigo-400/20 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
-                      <MapPinCheck className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                    <div className="w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-[0_0_20px_rgba(139,92,246,0.2)]">
+                      <MapPinCheck className="w-7 h-7 text-violet-400" />
                     </div>
-                    <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-2">
+                    <h2 className="text-2xl font-display font-bold text-white mb-3">
                       Check-In Attendance
                     </h2>
-                    <p className="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed">
+                    <p className="text-zinc-400 text-base leading-relaxed">
                       Verify your GPS location coordinates and check-in to active sessions.
                     </p>
                   </div>
-                  <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-indigo-600 dark:text-indigo-400 text-sm font-bold">
+                  <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-between text-violet-400 text-sm font-bold">
                     <span>Scan & Check-In</span>
-                    <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+                    <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center transform group-hover:translate-x-2 transition-transform">
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
                   </div>
                 </div>
               </Link>
 
               {/* Student - Records History */}
               <Link href="/student/dashboard" className="group">
-                <div className="card h-full flex flex-col justify-between hover:scale-[1.01] hover:border-emerald-500/30">
+                <div className="card-premium h-full p-8 border-white/5 bg-white/5 hover:bg-white/[0.07] transition-all duration-300 flex flex-col justify-between hover:scale-[1.02] hover:border-emerald-500/30">
                   <div>
-                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 dark:bg-emerald-400/10 border border-emerald-500/20 dark:border-emerald-400/20 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
-                      <History className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                      <History className="w-7 h-7 text-emerald-400" />
                     </div>
-                    <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-2">
+                    <h2 className="text-2xl font-display font-bold text-white mb-3">
                       My Attendance Logs
                     </h2>
-                    <p className="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed">
+                    <p className="text-zinc-400 text-base leading-relaxed">
                       Review complete historical registers of verified check-ins and classes.
                     </p>
                   </div>
-                  <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-emerald-600 dark:text-emerald-400 text-sm font-bold">
+                  <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-between text-emerald-400 text-sm font-bold">
                     <span>View Logs</span>
-                    <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+                    <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center transform group-hover:translate-x-2 transition-transform">
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
                   </div>
                 </div>
               </Link>

@@ -11,7 +11,8 @@ import {
   Activity, 
   MapPin, 
   CalendarCheck,
-  Map
+  Map,
+  ShieldCheck
 } from 'lucide-react';
 
 interface Attendee {
@@ -65,10 +66,10 @@ export default function SessionDetailPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-zinc-50 dark:bg-zinc-950">
+      <div className="flex items-center justify-center min-h-screen bg-black">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-indigo-500 border-t-transparent mb-4"></div>
-          <p className="text-zinc-500 dark:text-zinc-400 font-semibold text-sm">Loading session details...</p>
+          <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-violet-500 border-t-transparent mb-4"></div>
+          <p className="text-zinc-400 font-semibold text-sm animate-pulse">Loading session details...</p>
         </div>
       </div>
     );
@@ -76,16 +77,19 @@ export default function SessionDetailPage() {
 
   if (!sessionData) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col relative overflow-hidden">
-        <nav className="nav-bar">
-          <div className="nav-container">
-            <Link href="/" className="nav-brand">OnGrid</Link>
+      <div className="min-h-screen bg-black flex flex-col relative overflow-hidden text-zinc-100">
+        <nav className="nav-bar border-b border-white/5">
+          <div className="container-page flex items-center justify-between py-4">
+            <Link href="/" className="nav-brand flex items-center gap-2">
+              <ShieldCheck className="w-6 h-6 text-violet-500" />
+              OnGrid Instructor
+            </Link>
           </div>
         </nav>
         <main className="flex-1 container-page flex items-center justify-center py-12 px-4">
-          <div className="text-center max-w-sm card">
-            <p className="text-zinc-500 dark:text-zinc-400 font-semibold text-base mb-4">Session record not found</p>
-            <Link href="/teacher/dashboard" className="btn btn-primary w-full">
+          <div className="text-center max-w-sm card-premium bg-white/5 border-white/10 p-8">
+            <p className="text-zinc-400 font-semibold text-base mb-6">Session record not found</p>
+            <Link href="/teacher/dashboard" className="btn btn-primary w-full h-12">
               Back to Dashboard
             </Link>
           </div>
@@ -104,83 +108,89 @@ export default function SessionDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col relative overflow-hidden">
-      {/* Background radial glow */}
-      <div className="absolute top-[-10%] right-[-10%] w-[35%] h-[35%] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none"></div>
+    <div className="min-h-screen bg-black flex flex-col relative overflow-hidden text-zinc-100">
+      {/* Mesh Gradient Background */}
+      <div className="absolute inset-0 bg-mesh-dark opacity-40 pointer-events-none"></div>
 
-      <nav className="nav-bar">
-        <div className="nav-container">
-          <div className="nav-content">
-            <Link href="/" className="nav-brand">
-              OnGrid
+      {/* Floating Glowing Orbs */}
+      <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none"></div>
+      <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-violet-600/10 rounded-full blur-[150px] pointer-events-none"></div>
+
+      <nav className="nav-bar border-b border-white/5">
+        <div className="container-page flex items-center justify-between py-4">
+          <Link href="/" className="nav-brand flex items-center gap-2">
+            <ShieldCheck className="w-6 h-6 text-violet-500" />
+            OnGrid Instructor
+          </Link>
+          <div className="flex items-center gap-6">
+            <Link href="/teacher/dashboard" className="nav-link text-zinc-400 hover:text-white font-bold transition-colors">
+              Dashboard
             </Link>
-            <div className="nav-menu">
-              <Link href="/teacher/dashboard" className="nav-link">
-                Dashboard
-              </Link>
-              <Link href="/" className="nav-link">
-                Home
-              </Link>
-            </div>
+            <Link href="/" className="nav-link text-zinc-400 hover:text-white font-bold transition-colors">
+              Home
+            </Link>
           </div>
         </div>
       </nav>
 
-      <main className="flex-1 container-page py-12 px-4 relative z-10 animate-fade-in">
+      <main className="flex-1 container-page py-12 relative z-10 animate-fade-in">
         {/* Back Link */}
-        <Link href="/teacher/dashboard" className="inline-flex items-center gap-1.5 text-zinc-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 text-xs font-semibold mb-6 transition-colors">
-          <ArrowLeft className="w-3.5 h-3.5" />
+        <Link href="/teacher/dashboard" className="inline-flex items-center gap-1.5 text-zinc-500 hover:text-violet-400 text-sm font-bold mb-8 transition-colors">
+          <ArrowLeft className="w-4 h-4" />
           Back to Sessions
         </Link>
 
         {/* Title Header */}
-        <div className="mb-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800 rounded-full text-xs text-zinc-500 dark:text-zinc-400 font-semibold mb-3">
-            <Map className="w-3.5 h-3.5 text-indigo-500" />
+        <div className="mb-12">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-xs text-zinc-400 font-bold mb-6">
+            <Map className="w-4 h-4 text-violet-400" />
             <span>Classroom Session Details</span>
           </div>
-          <h1 className="text-3xl font-extrabold text-zinc-950 dark:text-white tracking-tight">
+          <h1 className="text-4xl font-display font-extrabold text-white tracking-tight mb-2">
             {sessionData.classroom.name}
           </h1>
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-1.5">
-            Room Label: <span className="font-semibold text-zinc-700 dark:text-zinc-300">{sessionData.classroom.label}</span>
+          <p className="text-zinc-400 text-base">
+            Room Label: <span className="font-bold text-white">{sessionData.classroom.label}</span>
           </p>
         </div>
 
         {/* Metrics Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="card bg-white/50 dark:bg-zinc-900/30">
-            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Status</p>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className={`w-2.5 h-2.5 rounded-full ${sessionData.isActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
-              <span className={`text-base font-extrabold ${sessionData.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+          <div className="card-premium p-6 border-white/5 bg-white/5 flex flex-col justify-between">
+            <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Status</p>
+            <div className="flex items-center gap-3 mt-4">
+              <span className={`w-3 h-3 rounded-full shadow-[0_0_15px_rgba(0,0,0,0.5)] ${sessionData.isActive ? 'bg-emerald-500 shadow-emerald-500/50 animate-pulse' : 'bg-rose-500 shadow-rose-500/50'}`}></span>
+              <span className={`text-2xl font-display font-extrabold ${sessionData.isActive ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {sessionData.isActive ? 'Active' : 'Closed'}
               </span>
             </div>
           </div>
-          <div className="card bg-white/50 dark:bg-zinc-900/30">
-            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Gate Open Time</p>
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <Clock className="w-4 h-4 text-indigo-500" />
-              <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200">
-                {new Date(sessionData.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+
+          <div className="card-premium p-6 border-white/5 bg-white/5 flex flex-col justify-between">
+            <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Gate Open Time</p>
+            <div className="flex items-center gap-3 mt-4">
+              <Clock className="w-6 h-6 text-indigo-400" />
+              <span className="text-xl font-display font-extrabold text-white">
+                {new Date(sessionData.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
           </div>
-          <div className="card bg-white/50 dark:bg-zinc-900/30">
-            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Students Marked</p>
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <Users className="w-4 h-4 text-violet-500" />
-              <span className="text-base font-black text-indigo-600 dark:text-indigo-400">
+
+          <div className="card-premium p-6 border-white/5 bg-white/5 flex flex-col justify-between">
+            <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Students Marked</p>
+            <div className="flex items-center gap-3 mt-4">
+              <Users className="w-6 h-6 text-fuchsia-400" />
+              <span className="text-3xl font-display font-extrabold text-white">
                 {sessionData.records.length}
               </span>
             </div>
           </div>
-          <div className="card bg-white/50 dark:bg-zinc-900/30">
-            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Active Duration</p>
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <Activity className="w-4 h-4 text-amber-500" />
-              <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200">
+
+          <div className="card-premium p-6 border-white/5 bg-white/5 flex flex-col justify-between">
+            <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Active Duration</p>
+            <div className="flex items-center gap-3 mt-4">
+              <Activity className="w-6 h-6 text-amber-400" />
+              <span className="text-xl font-display font-extrabold text-white">
                 {sessionData.endedAt
                   ? Math.round(
                       (new Date(sessionData.endedAt).getTime() -
@@ -194,50 +204,52 @@ export default function SessionDetailPage() {
         </div>
 
         {/* Attendance Log Table */}
-        <div className="card">
-          <div className="pb-4 mb-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-              <CalendarCheck className="w-5 h-5 text-indigo-500" />
+        <div className="card-premium border-white/10 bg-white/[0.02]">
+          <div className="p-6 border-b border-white/10 flex items-center justify-between">
+            <h2 className="text-xl font-display font-bold text-white flex items-center gap-3">
+              <CalendarCheck className="w-6 h-6 text-indigo-400" />
               Attendance Record Register
             </h2>
           </div>
           
-          <div className="card-body px-0">
+          <div className="p-0">
             {sessionData.records.length === 0 ? (
-              <div className="text-center py-12 max-w-sm mx-auto text-zinc-400 dark:text-zinc-600">
-                <Users className="w-10 h-10 mx-auto mb-3 opacity-40" />
-                <p className="text-sm font-semibold">No student has check-in logs</p>
-                <p className="text-xs mt-1">When students complete geolocation check-ins, they will populate here instantly.</p>
+              <div className="text-center py-20 max-w-sm mx-auto text-zinc-500">
+                <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 text-zinc-600 border border-white/10">
+                  <Users className="w-8 h-8" />
+                </div>
+                <p className="text-xl font-display font-bold text-white mb-2">No student check-ins yet</p>
+                <p className="text-sm leading-relaxed">When students complete geolocation check-ins, they will populate here instantly.</p>
               </div>
             ) : (
-              <div className="table-wrapper">
-                <table className="table">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr>
-                      <th>Student</th>
-                      <th className="hidden sm:table-cell">Email</th>
-                      <th>Marked At</th>
-                      <th>GPS Coordinates</th>
+                    <tr className="bg-black/40 border-b border-white/5">
+                      <th className="py-4 px-6 text-xs font-bold uppercase tracking-wider text-zinc-500">Student</th>
+                      <th className="hidden sm:table-cell py-4 px-6 text-xs font-bold uppercase tracking-wider text-zinc-500">Email</th>
+                      <th className="py-4 px-6 text-xs font-bold uppercase tracking-wider text-zinc-500">Marked At</th>
+                      <th className="py-4 px-6 text-xs font-bold uppercase tracking-wider text-zinc-500">GPS Coordinates</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-white/5">
                     {sessionData.records.map((record) => (
-                      <tr key={record.id}>
-                        <td className="font-bold text-zinc-900 dark:text-zinc-100">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/50 dark:border-zinc-700/50 text-[10px] font-bold text-zinc-600 dark:text-zinc-400 flex items-center justify-center">
+                      <tr key={record.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 text-sm font-bold text-violet-400 flex items-center justify-center">
                               {getInitials(record.student.name)}
                             </div>
-                            <span>{record.student.name}</span>
+                            <span className="font-bold text-white text-sm">{record.student.name}</span>
                           </div>
                         </td>
-                        <td className="hidden sm:table-cell text-xs text-zinc-400 font-semibold">{record.student.email}</td>
-                        <td className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                        <td className="hidden sm:table-cell py-4 px-6 text-sm text-zinc-400 font-medium">{record.student.email}</td>
+                        <td className="py-4 px-6 text-sm font-bold text-zinc-300">
                           {new Date(record.markedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </td>
-                        <td>
-                          <div className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 px-2 py-1 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100/50 dark:border-indigo-900/30 rounded-lg">
-                            <MapPin className="w-3.5 h-3.5" />
+                        <td className="py-4 px-6">
+                          <div className="inline-flex items-center gap-2 text-xs font-bold text-indigo-300 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-lg">
+                            <MapPin className="w-4 h-4 text-indigo-400" />
                             <span>{record.lat.toFixed(6)}, {record.lng.toFixed(6)}</span>
                           </div>
                         </td>

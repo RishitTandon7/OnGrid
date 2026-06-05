@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { User, Mail, Lock, UserPlus, ShieldAlert, ArrowRight, UserCheck } from 'lucide-react';
+import { User, Mail, Lock, ShieldAlert, ArrowRight, UserCheck, ShieldCheck } from 'lucide-react';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -64,46 +64,47 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Accent Gradients */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[120px] pointer-events-none"></div>
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-500/10 blur-[120px] pointer-events-none"></div>
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4 relative overflow-hidden text-zinc-100">
+      {/* Mesh Gradient Background */}
+      <div className="absolute inset-0 bg-mesh-dark opacity-80 pointer-events-none"></div>
+
+      {/* Floating Glowing Orbs */}
+      <div className="absolute top-1/3 left-1/4 w-96 h-96 bg-fuchsia-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none" style={{ animationDelay: '1.5s' }}></div>
 
       {/* Grid Pattern */}
-      <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.04] pointer-events-none" style={{
-        backgroundImage: 'radial-gradient(var(--foreground) 1px, transparent 0)',
-        backgroundSize: '24px 24px'
+      <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{
+        backgroundImage: 'radial-gradient(rgba(255,255,255,0.8) 1px, transparent 0)',
+        backgroundSize: '32px 32px'
       }}></div>
 
-      <div className="w-full max-w-md relative z-10 animate-slide-up">
+      <div className="w-full max-w-md relative z-10 animate-fade-in-up py-8">
         {/* Brand Header */}
-        <div className="flex flex-col items-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 dark:from-indigo-50 dark:to-violet-50 flex items-center justify-center shadow-lg shadow-indigo-500/30 mb-4 animate-float">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-6 h-6 text-white">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-.995l-4.857 2.43c-.29.145-.63.145-.92 0L9.18 3.825c-.29-.145-.63-.145-.92 0L3.385 6.225A1.125 1.125 0 002.625 7.23v10.185c0 .426.24.815.62 1.006l4.875 2.437c.295.148.64.148.936 0l4.875-2.437z" />
-            </svg>
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-16 h-16 rounded-[20px] bg-gradient-to-tr from-violet-600 to-fuchsia-600 flex items-center justify-center shadow-[0_8px_32px_rgba(139,92,246,0.5)] mb-6 animate-float relative">
+            <div className="absolute inset-0 rounded-[20px] bg-white/20 blur-md pointer-events-none"></div>
+            <ShieldCheck strokeWidth="2" className="w-8 h-8 text-white relative z-10" />
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-zinc-900 to-zinc-700 dark:from-zinc-50 dark:to-zinc-300 bg-clip-text text-transparent">
+          <h1 className="heading-display mb-2 text-center text-4xl">
             Join OnGrid
           </h1>
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm mt-1 font-medium">
+          <p className="text-zinc-400 text-sm font-medium tracking-wide text-center">
             Create an account to verify real-time classroom attendance
           </p>
         </div>
 
         {/* Card Wrapper */}
         <div className="card-premium">
-          <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-6 flex items-center gap-2">
-            <UserPlus className="w-5 h-5 text-indigo-500" />
+          <h2 className="text-2xl font-display font-bold text-white mb-8 tracking-tight text-center">
             Create Account
           </h2>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="form-group">
               <label className="label">Full Name</label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400 dark:text-zinc-500">
-                  <User className="w-4 h-4" />
+              <div className="relative group">
+                <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500 group-focus-within:text-violet-400 transition-colors">
+                  <User className="w-5 h-5" />
                 </span>
                 <input
                   type="text"
@@ -111,7 +112,7 @@ export default function RegisterPage() {
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="input pl-10"
+                  className="input pl-12"
                   placeholder="John Doe"
                 />
               </div>
@@ -119,9 +120,9 @@ export default function RegisterPage() {
 
             <div className="form-group">
               <label className="label">Email Address</label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400 dark:text-zinc-500">
-                  <Mail className="w-4 h-4" />
+              <div className="relative group">
+                <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500 group-focus-within:text-violet-400 transition-colors">
+                  <Mail className="w-5 h-5" />
                 </span>
                 <input
                   type="email"
@@ -129,7 +130,7 @@ export default function RegisterPage() {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  className="input pl-10"
+                  className="input pl-12"
                   placeholder="yourname@college.edu"
                   autoComplete="email"
                 />
@@ -138,95 +139,103 @@ export default function RegisterPage() {
 
             <div className="form-group">
               <label className="label">Account Type</label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400 dark:text-zinc-500 z-10">
-                  <UserCheck className="w-4 h-4" />
+              <div className="relative group">
+                <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500 group-focus-within:text-violet-400 transition-colors z-10">
+                  <UserCheck className="w-5 h-5" />
                 </span>
                 <select
                   name="role"
                   value={formData.role}
                   onChange={handleChange}
-                  className="select pl-10"
+                  className="select pl-12 text-zinc-900 dark:text-zinc-100"
                 >
-                  <option value="STUDENT">Student</option>
-                  <option value="TEACHER">Instructor / Teacher</option>
+                  <option value="STUDENT" className="text-zinc-900">Student</option>
+                  <option value="TEACHER" className="text-zinc-900">Instructor / Teacher</option>
                 </select>
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="label">Password</label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400 dark:text-zinc-500">
-                  <Lock className="w-4 h-4" />
-                </span>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  className="input pl-10"
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="form-group">
+                <label className="label">Password</label>
+                <div className="relative group">
+                  <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500 group-focus-within:text-violet-400 transition-colors">
+                    <Lock className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    className="input pl-11"
+                    placeholder="••••••••"
+                    autoComplete="new-password"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="form-group">
-              <label className="label">Confirm Password</label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400 dark:text-zinc-500">
-                  <Lock className="w-4 h-4" />
-                </span>
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  required
-                  className="input pl-10"
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                />
+              <div className="form-group">
+                <label className="label">Confirm</label>
+                <div className="relative group">
+                  <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500 group-focus-within:text-violet-400 transition-colors">
+                    <Lock className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    required
+                    className="input pl-11"
+                    placeholder="••••••••"
+                    autoComplete="new-password"
+                  />
+                </div>
               </div>
             </div>
 
             {error && (
-              <div className="alert alert-error animate-fade-in flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                <span className="flex-1 text-xs">{error}</span>
+              <div className="alert alert-error animate-fade-in flex items-center gap-3">
+                <ShieldAlert className="w-5 h-5 flex-shrink-0" />
+                <span className="flex-1 text-sm">{error}</span>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary w-full mt-4 flex items-center justify-center gap-2"
+              className="btn btn-primary w-full mt-4 h-14 text-base"
             >
               {loading ? (
                 <>
-                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
+                  <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-white/30 border-t-white mr-3"></span>
                   Creating Account...
                 </>
               ) : (
                 <>
                   Create Account
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-5 h-5 ml-2" />
                 </>
               )}
             </button>
           </form>
 
           {/* Sign In link */}
-          <div className="mt-6 pt-5 border-t border-zinc-100 dark:border-zinc-800 text-center">
-            <p className="text-zinc-500 dark:text-zinc-400 text-xs font-medium">
+          <div className="mt-8 pt-6 border-t border-white/10 text-center">
+            <p className="text-zinc-400 text-sm font-medium">
               Already have an account?{' '}
-              <Link href="/auth/login" className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">
+              <Link href="/auth/login" className="text-violet-400 font-bold hover:text-violet-300 transition-colors">
                 Sign in
               </Link>
             </p>
           </div>
+        </div>
+
+        {/* Footer info box */}
+        <div className="mt-8 text-center text-[11px] text-zinc-600 font-medium tracking-wide">
+          <p className="mb-1">Secure Enterprise Access Environment</p>
+          <p>© 2026 OnGrid Systems Inc.</p>
         </div>
       </div>
     </div>
