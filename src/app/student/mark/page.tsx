@@ -9,26 +9,18 @@ import {
   MapPin,
   Clock,
   User,
-  Locate,
   Compass,
   CheckCircle2,
   AlertCircle,
   Info,
   ShieldCheck,
   Check,
-  Gauge,
-  MoveVertical,
-  Activity,
-  Navigation,
   Layers,
-  Wifi,
-  Smartphone,
   Fingerprint,
 } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import {
   collectSensorReading,
-  computeFloorConfidence,
   type SensorReading,
 } from '@/lib/sensors';
 
@@ -66,7 +58,6 @@ export default function MarkAttendancePage() {
 
   // Live sensor readings displayed during scan
   const [liveSensor, setLiveSensor] = useState<SensorReading | null>(null);
-  const [liveConfidence, setLiveConfidence] = useState<number | null>(null);
 
   // Timer ref for cleanup
   const abortRef = useRef(false);
@@ -106,7 +97,6 @@ export default function MarkAttendancePage() {
     setSuccess('');
     setStep(0);
     setLiveSensor(null);
-    setLiveConfidence(null);
     abortRef.current = false;
 
     try {
@@ -124,7 +114,7 @@ export default function MarkAttendancePage() {
       let webAuthnAssertion;
       try {
         webAuthnAssertion = await startAuthentication(options);
-      } catch (authErr: any) {
+      } catch {
         throw new Error('Biometric verification cancelled or failed.');
       }
 
@@ -414,15 +404,15 @@ export default function MarkAttendancePage() {
                 <ul className="text-xs text-indigo-800/80 dark:text-indigo-400/80 space-y-3 leading-relaxed font-semibold">
                   <li className="flex items-start gap-2">
                     <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-1.5 flex-shrink-0"></span>
-                    <span><strong>Biometric Lock:</strong> Only the student's registered device with Face ID / Fingerprint can check in.</span>
+                    <span><strong>Biometric Lock:</strong> Only the student&apos;s registered device with Face ID / Fingerprint can check in.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-1.5 flex-shrink-0"></span>
-                    <span><strong>GPS Position:</strong> Must be physically within the classroom's lat/lng boundary.</span>
+                    <span><strong>GPS Position:</strong> Must be physically within the classroom&apos;s lat/lng boundary.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full mt-1.5 flex-shrink-0"></span>
-                    <span><strong>Campus Network:</strong> Device IP must match the teacher's campus building subnet.</span>
+                    <span><strong>Campus Network:</strong> Device IP must match the teacher&apos;s campus building subnet.</span>
                   </li>
                 </ul>
 
@@ -439,7 +429,7 @@ export default function MarkAttendancePage() {
                   <h4 className="text-xs font-bold">1-Device Policy Enforced</h4>
                 </div>
                 <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                  Your account is securely bound to this device's Passkey/Biometric module. 
+                  Your account is securely bound to this device&apos;s Passkey/Biometric module. 
                   Login from other devices is blocked to prevent proxy attendance.
                 </div>
               </div>

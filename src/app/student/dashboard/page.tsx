@@ -88,8 +88,9 @@ export default function StudentDashboard() {
         const errorData = await verRes.json();
         throw new Error(errorData.message || 'Failed to verify');
       }
-    } catch (err: any) {
-      setRegError(err.message || 'Registration failed');
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Registration failed';
+      setRegError(errorMsg);
       console.error(err);
     } finally {
       setRegistering(false);
